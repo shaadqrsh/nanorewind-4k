@@ -1,0 +1,107 @@
+-- Create a table for public profiles
+create table if not exists profiles (
+  id uuid references auth.users not null primary key,
+  credits int default 3,
+  last_refill timestamptz default now()
+);
+
+-- Set up Row Level Security (RLS)
+alter table profiles enable row level security;
+
+-- Policies
+-- 1. Users can VIEW their own profile
+create policy "Users can view own profile" on profiles
+  for select using (auth.uid() = id);
+
+-- 2. Users CANNOT update their profile directly (credits are managed via function)
+-- No update policy created implies deny all updates by default for public role.
+
+-- Function to handle new user creation automatically
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, credits, last_refill)
+  values (new.id, 3, now());
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger for new users
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+
+-- SECURE CREDIT DEDUCTION FUNCTION
+-- This runs with 'security definer', meaning it runs with the privileges of the creator (postgres/admin)
+-- This allows it to bypass the RLS restriction on UPDATE, but only performs the specific logic defined here.
+create or replace function attempt_deduct_credit()
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  user_id uuid;
+  user_profile profiles%ROWTYPE;
+  now_ts timestamptz;
+  elapsed_ms bigint;
+  gained_credits int;
+  new_credits int;
+  new_refill_ts timestamptz;
+  max_credits constant int := 3;
+  refill_ms constant bigint := 86400000; -- 24 hours in ms
+begin
+  -- Get the current user ID
+  user_id := auth.uid();
+  if user_id is null then
+    return false; -- Not logged in
+  end if;
+
+  -- Lock the row for update to prevent race conditions
+  select * into user_profile from profiles where id = user_id for update;
+  
+  if not found then
+    return false;
+  end if;
+
+  now_ts := now();
+  
+  -- Calculate Refill Logic inside DB
+  -- Extract epoch converts to seconds, multiply by 1000 for ms
+  elapsed_ms := (extract(epoch from now_ts) * 1000) - (extract(epoch from user_profile.last_refill) * 1000);
+  
+  gained_credits := floor(elapsed_ms / refill_ms);
+  
+  new_credits := user_profile.credits + gained_credits;
+  if new_credits > max_credits then
+     new_credits := max_credits;
+  end if;
+
+  -- Calculate new Refill Timestamp
+  if new_credits = max_credits then
+     new_refill_ts := now_ts; -- Reset timer if full
+  else
+     -- Advance timer by exact amount consumed
+     new_refill_ts := user_profile.last_refill + (gained_credits * interval '1 day');
+  end if;
+
+  -- Check availability
+  if new_credits < 1 then
+     -- Update the refill stats even if we fail, so the user sees correct "pending" credits? 
+     -- No, just return false.
+     return false;
+  end if;
+
+  -- Deduct
+  new_credits := new_credits - 1;
+
+  -- Update DB
+  update profiles 
+  set credits = new_credits, 
+      last_refill = new_refill_ts 
+  where id = user_id;
+
+  return true;
+end;
+$$;
