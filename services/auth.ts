@@ -15,6 +15,18 @@ const BACKEND_URL = getEnv('VITE_BACKEND_URL', 'http://localhost:7860');
 
 const getToken = () => localStorage.getItem('access_token');
 
+/**
+ * Safely parse JSON from a fetch response.
+ */
+const safeParseJson = async (response: Response) => {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return { error: text || `Server error: ${response.status}` };
+  }
+};
+
 export const authService = {
   login: async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -24,7 +36,7 @@ export const authService = {
         body: JSON.stringify({ email, password })
       });
       
-      const data = await res.json();
+      const data = await safeParseJson(res);
       
       if (!res.ok) {
         return { success: false, error: data.error };
@@ -45,7 +57,7 @@ export const authService = {
         body: JSON.stringify({ email, password })
       });
       
-      const data = await res.json();
+      const data = await safeParseJson(res);
       
       if (!res.ok) {
         return { success: false, error: data.error };

@@ -21,10 +21,41 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // Database Pool (Neon)
+if (!process.env.DATABASE_URL) {
+  console.error("CRITICAL ERROR: DATABASE_URL environment variable is missing!");
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 5000,
 });
+
+// Test connection and initialize schema
+async function initDb() {
+  try {
+    const client = await pool.connect();
+    console.log("Successfully connected to Postgres database.");
+    
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        credits INTEGER DEFAULT 3,
+        last_refill TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log("Database schema verified/initialized.");
+    client.release();
+  } catch (err) {
+    console.error("DATABASE INITIALIZATION ERROR:", err.message);
+    console.error("Please verify your DATABASE_URL and ensure Neon allows connections.");
+  }
+}
+
+initDb();
 
 // AI Client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -57,9 +88,9 @@ app.post('/api/auth/signup', async (req, res) => {
     );
     res.status(201).json({ success: true, user: result.rows[0] });
   } catch (err) {
+    console.error("SIGNUP ERROR:", err);
     if (err.code === '23505') return res.status(400).json({ error: 'Email already exists' });
-    console.error(err);
-    res.status(500).json({ error: 'Failed to create account' });
+    res.status(500).json({ error: `Server Database Error: ${err.message}` });
   }
 });
 
@@ -79,8 +110,8 @@ app.post('/api/auth/login', async (req, res) => {
       user: { id: user.id, email: user.email }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Login failed' });
+    console.error("LOGIN ERROR:", err);
+    res.status(500).json({ error: `Login failed: ${err.message}` });
   }
 });
 
@@ -120,7 +151,7 @@ app.get('/api/quota', authenticateToken, async (req, res) => {
       nextReset
     });
   } catch (err) {
-    console.error(err);
+    console.error("QUOTA ERROR:", err);
     res.status(500).json({ error: 'Failed to fetch quota' });
   }
 });
@@ -182,7 +213,7 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
     res.json({ image: `data:image/png;base64,${restoredImageBase64}` });
 
   } catch (err) {
-    console.error(err);
+    console.error("RESTORATION ERROR:", err);
     res.status(500).json({ error: err.message || 'Restoration failed' });
   }
 });
