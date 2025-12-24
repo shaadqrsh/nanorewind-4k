@@ -5,16 +5,17 @@ import { RestoredView } from './components/RestoredView';
 import { AuthScreen } from './components/AuthScreen';
 import { PromptSelector, PromptOptions } from './components/PromptSelector';
 import { restoreImage } from './services/gemini';
-import { auth, authService } from './services/auth';
+import { setupAuth, getAuth, authService } from './services/auth';
 import { ImageFile, RestorationStatus } from './types';
-import { AlertCircle, Wand2, Check, Zap, X, XCircle } from 'lucide-react';
+import { AlertCircle, Wand2, Check, Zap, X, XCircle, Loader2 } from 'lucide-react';
 import { Button } from './components/Button';
 import { Countdown } from './components/Countdown';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   const [file, setFile] = useState<ImageFile | null>(null);
   const [promptOptions, setPromptOptions] = useState<PromptOptions>({
@@ -41,30 +42,48 @@ export const App: React.FC = () => {
     return q;
   }, []);
 
+  // Initialize Auth & Config
   useEffect(() => {
-    const checkSession = async () => {
-      const session = await auth.getSession();
-      const currentUser = await auth.getUser();
-      setUser(currentUser);
-      setIsSignedIn(!!session);
-      setIsLoaded(true);
-      
-      if (session) {
-        refreshQuota().then(q => {
-          if (q && !q.allowed) setShowZeroCreditsModal(true);
-        });
+    const init = async () => {
+      try {
+        await setupAuth();
+        const auth = getAuth();
+        const { data } = await auth.getSession();
+        const session = data?.session;
+        const currentUser = data?.user;
+        
+        setUser(currentUser);
+        setIsSignedIn(!!session);
+        setIsAuthReady(true);
+        
+        if (session) {
+          refreshQuota().then(q => {
+            if (q && !q.allowed) setShowZeroCreditsModal(true);
+          });
+        }
+      } catch (err) {
+        setConfigError("Failed to connect to authentication server.");
       }
     };
-    checkSession();
+    init();
+  }, [refreshQuota]);
+
+  // Periodic Session Check
+  useEffect(() => {
+    if (!isAuthReady) return;
     
-    // Subscribe to auth changes if library supports it, or poll
     const interval = setInterval(async () => {
-       const session = await auth.getSession();
-       setIsSignedIn(!!session);
+       try {
+         const auth = getAuth();
+         const { data } = await auth.getSession();
+         setIsSignedIn(!!data?.session);
+       } catch (e) {
+         // silent error during polling
+       }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [refreshQuota]);
+  }, [isAuthReady]);
 
   const handleFileSelect = useCallback((selectedFile: File) => {
     const reader = new FileReader();
@@ -80,22 +99,24 @@ export const App: React.FC = () => {
   }, []);
 
   const handleRestore = async () => {
-    const session = await auth.getSession();
-    if (!session) return;
-
-    const currentQuota = await refreshQuota();
-    if (!currentQuota?.allowed) {
-        setShowZeroCreditsModal(true);
-        return;
-    }
-
-    if (!file) return;
-
-    setStatus('loading');
-    setError(null);
-    setRestoredImage(null);
-
     try {
+      const auth = getAuth();
+      const { data } = await auth.getSession();
+      const session = data?.session;
+      if (!session) return;
+
+      const currentQuota = await refreshQuota();
+      if (!currentQuota?.allowed) {
+          setShowZeroCreditsModal(true);
+          return;
+      }
+
+      if (!file) return;
+
+      setStatus('loading');
+      setError(null);
+      setRestoredImage(null);
+
       const base64Data = file.previewUrl.split(',')[1];
       const mimeType = file.file.type;
       
@@ -108,7 +129,7 @@ export const App: React.FC = () => {
       
       const finalPrompt = `${directives.join(" ")} Enhance portrait. Preserve identity. Sony A1 look. Neutral color. Same aspect ratio.`;
       
-      const restoredBase64 = await restoreImage(base64Data, mimeType, finalPrompt, session.accessToken);
+      const restoredBase64 = await restoreImage(base64Data, mimeType, finalPrompt, session.id);
       await refreshQuota();
       setRestoredImage(restoredBase64);
       setStatus('success');
@@ -126,12 +147,31 @@ export const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    const auth = getAuth();
     await auth.signOut();
     setIsSignedIn(false);
     setUser(null);
   };
 
-  if (!isLoaded) return null;
+  if (configError) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300 p-4">
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl flex items-center gap-3 max-w-md">
+          <AlertCircle className="text-red-500 w-6 h-6 shrink-0" />
+          <p>{configError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-banana-500 animate-spin" />
+      </div>
+    );
+  }
+
   if (!isSignedIn) return <AuthScreen onAuthSuccess={() => setIsSignedIn(true)} />;
 
   const buttonConfig = !quota.allowed 

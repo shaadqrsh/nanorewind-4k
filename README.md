@@ -24,9 +24,9 @@ Set these environment variables:
 ### Backend
 *   `DATABASE_URL`: Your Neon Postgres connection string.
 *   `API_KEY`: Your Google Gemini API Key.
+*   `NEON_AUTH_URL`: Your Neon Auth project domain (e.g. `https://your-auth-subdomain.neon.tech`).
 
 ### Frontend
-*   `VITE_NEON_AUTH_URL`: Your Neon Auth project domain (e.g. `https://your-auth-subdomain.neon.tech`).
 *   `VITE_BACKEND_URL`: URL of your running backend.
 
 ## 3. Local Development

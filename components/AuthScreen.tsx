@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { History, ArrowRight, ShieldCheck, Mail } from 'lucide-react';
-import { auth } from '../services/auth';
+import { getAuth } from '../services/auth';
 import { Button } from './Button';
 
 interface AuthScreenProps {
@@ -25,17 +25,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     setIsLoading(true);
 
     try {
+      const auth = getAuth();
       if (view === 'login') {
-        const { error } = await auth.signIn({ email, password });
+        const { error } = await auth.signIn.email({ email, password });
         if (error) throw error;
         onAuthSuccess();
       } else if (view === 'signup') {
-        const { error } = await auth.signUp({ email, password });
+        const { error } = await auth.signUp.email({ email, password });
         if (error) throw error;
         setView('verify');
         setSuccessMsg("Check your email for a verification code.");
       } else if (view === 'verify') {
-        const { error } = await auth.verifyEmail({ email, code });
+        // @ts-ignore
+        const { error } = await auth.emailOtp?.verifyEmail ? auth.emailOtp.verifyEmail({ email, otp: code }) : (auth as any).verifyEmail ? (auth as any).verifyEmail({ email, code }) : { error: { message: 'Verify not supported' } };
         if (error) throw error;
         setView('login');
         setSuccessMsg("Email verified successfully! You can now sign in.");

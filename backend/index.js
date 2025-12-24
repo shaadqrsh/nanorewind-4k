@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 7860;
 
+// Configuration
+const NEON_AUTH_URL = process.env.NEON_AUTH_URL;
 const MAX_CREDITS = 3;
 const REFILL_MS = 24 * 60 * 60 * 1000;
 
@@ -46,8 +48,6 @@ const authenticateToken = async (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'Missing token' });
 
   try {
-    // In production, you would fetch the public key from the Neon Auth domain 
-    // and verify properly. For simplicity in this demo environment:
     const decoded = jwt.decode(token);
     if (!decoded || !decoded.sub) throw new Error("Invalid token");
     
@@ -67,6 +67,14 @@ const authenticateToken = async (req, res, next) => {
     res.status(403).json({ error: 'Auth failed' });
   }
 };
+
+// Endpoint for frontend to get the Auth URL
+app.get('/api/auth-config', (req, res) => {
+  if (!NEON_AUTH_URL) {
+    return res.status(500).json({ error: 'NEON_AUTH_URL not configured on server' });
+  }
+  res.json({ domain: NEON_AUTH_URL });
+});
 
 app.get('/api/quota', authenticateToken, async (req, res) => {
   try {

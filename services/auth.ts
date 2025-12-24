@@ -9,20 +9,39 @@ const getEnv = (key: string, fallback: string) => {
 };
 
 const BACKEND_URL = getEnv('VITE_BACKEND_URL', 'http://localhost:7860');
-const NEON_AUTH_URL = getEnv('VITE_NEON_AUTH_URL', '');
 
-export const auth = createAuthClient({
-  domain: NEON_AUTH_URL,
-});
+let authClient: ReturnType<typeof createAuthClient> | null = null;
+
+export const setupAuth = async () => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/auth-config`);
+    if (!res.ok) throw new Error('Failed to fetch auth config');
+    const { domain } = await res.json();
+    authClient = createAuthClient(domain);
+    return authClient;
+  } catch (error) {
+    console.error("Auth setup failed:", error);
+    throw error;
+  }
+};
+
+export const getAuth = () => {
+  if (!authClient) {
+    throw new Error("Auth client not initialized. Call setupAuth() first.");
+  }
+  return authClient;
+};
 
 export const authService = {
   checkQuota: async (): Promise<{ allowed: boolean; remaining: number; nextReset?: number }> => {
     try {
-        const session = await auth.getSession();
+        const auth = getAuth();
+        const { data } = await auth.getSession();
+        const session = data?.session;
         if (!session) return { allowed: false, remaining: 0 };
         
         const res = await fetch(`${BACKEND_URL}/api/quota`, {
-            headers: { 'Authorization': `Bearer ${session.accessToken}` }
+            headers: { 'Authorization': `Bearer ${session.id}` }
         });
         if (!res.ok) return { allowed: false, remaining: 0 };
         return await res.json();
