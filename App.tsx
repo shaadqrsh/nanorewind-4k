@@ -7,7 +7,7 @@ import { PromptSelector, PromptOptions } from './components/PromptSelector';
 import { restoreImage } from './services/gemini';
 import { authService } from './services/auth';
 import { ImageFile, RestorationStatus } from './types';
-import { AlertCircle, Wand2, Check, Zap, X } from 'lucide-react';
+import { AlertCircle, Wand2, Check, Zap, X, XCircle } from 'lucide-react';
 import { Button } from './components/Button';
 import { Countdown } from './components/Countdown';
 
@@ -42,7 +42,11 @@ export const App: React.FC = () => {
       if (email) {
         setIsAuthenticated(true);
         setUserEmail(email);
-        await refreshQuota();
+        const q = await refreshQuota();
+        // If user is already out of credits upon login, show the modal
+        if (q && !q.allowed) {
+          setShowZeroCreditsModal(true);
+        }
       }
       setIsAuthLoading(false);
     };
@@ -136,8 +140,47 @@ export const App: React.FC = () => {
       const email = await authService.getCurrentUser();
       setUserEmail(email);
       setIsAuthenticated(true);
-      await refreshQuota();
+      const q = await refreshQuota();
+      if (q && !q.allowed) {
+        setShowZeroCreditsModal(true);
+      }
   }} />;
+
+  // Helper to determine button state
+  const getButtonConfig = () => {
+    if (!quota.allowed) {
+      return {
+        text: 'Daily Limit Reached',
+        icon: XCircle,
+        variant: 'danger' as const,
+        disabled: true
+      };
+    }
+    if (status === 'loading') {
+      return {
+        text: 'Restoring...',
+        icon: Wand2,
+        variant: 'primary' as const,
+        disabled: true
+      };
+    }
+    if (status === 'success') {
+      return {
+        text: 'Restored',
+        icon: Check,
+        variant: 'primary' as const,
+        disabled: true
+      };
+    }
+    return {
+      text: 'Restore Image',
+      icon: Wand2,
+      variant: 'primary' as const,
+      disabled: !file
+    };
+  };
+
+  const buttonConfig = getButtonConfig();
 
   return (
     <div className="h-screen flex flex-col font-sans text-slate-100 overflow-hidden bg-slate-950">
@@ -189,12 +232,13 @@ export const App: React.FC = () => {
             <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 shadow-xl backdrop-blur-sm shrink-0 mt-auto">
                 <Button
                     onClick={handleRestore}
-                    disabled={!file || status === 'loading' || !quota.allowed || status === 'success'}
+                    disabled={buttonConfig.disabled}
                     isLoading={status === 'loading'}
-                    icon={status === 'success' ? Check : Wand2}
+                    icon={buttonConfig.icon}
+                    variant={buttonConfig.variant}
                     className="w-full py-3"
                 >
-                    {status === 'loading' ? 'Restoring...' : status === 'success' ? 'Restored' : 'Restore Image'}
+                    {buttonConfig.text}
                 </Button>
                 
                 {error && (
