@@ -59,7 +59,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
             ? 'border-banana-500 bg-banana-500/10' 
             : error 
                 ? 'border-red-500/50 bg-red-500/5 hover:bg-red-500/10'
-                : 'border-slate-600 hover:border-banana-500/50 hover:bg-slate-800'
+                : 'border-slate-300 hover:border-banana-500/50 hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800'
             }
         `}
         onDragOver={handleDragOver}
@@ -67,9 +67,9 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
         onDrop={handleDrop}
         >
         <div className="flex flex-col items-center justify-center text-center px-4">
-            <UploadCloud className={`w-8 h-8 mb-2 transition-colors ${isDragOver ? 'text-banana-500 animate-bounce' : 'text-slate-500'}`} />
-            <p className="text-xs text-slate-300 font-medium">
-            <span className="font-semibold text-banana-400">Upload</span> or drag
+            <UploadCloud className={`w-8 h-8 mb-2 transition-colors ${isDragOver ? 'text-banana-500 animate-bounce' : 'text-slate-400 dark:text-slate-500'}`} />
+            <p className="text-xs text-slate-500 dark:text-slate-300 font-medium">
+            <span className="font-semibold text-banana-600 dark:text-banana-400">Upload</span> or drag
             </p>
         </div>
         <input 
@@ -80,7 +80,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
         />
         </label>
         {error && (
-            <div className="flex items-center gap-1 text-[10px] text-red-400 px-1">
+            <div className="flex items-center gap-1 text-[10px] text-red-500 dark:text-red-400 px-1">
                 <AlertCircle className="w-2.5 h-2.5" />
                 {error}
             </div>

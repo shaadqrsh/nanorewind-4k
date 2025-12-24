@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -25,10 +26,6 @@
       }
     </script>
     <style>
-      body {
-        background-color: #0f172a; /* slate-900 */
-        color: #f8fafc; /* slate-50 */
-      }
       @media (min-width: 768px) {
         body { overflow: hidden; }
       }
@@ -36,6 +33,11 @@
       ::-webkit-scrollbar-track { background: #1e293b; }
       ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
       ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+      
+      /* Light mode scrollbar overrides */
+      html:not(.dark) ::-webkit-scrollbar-track { background: #e2e8f0; }
+      html:not(.dark) ::-webkit-scrollbar-thumb { background: #94a3b8; }
+      html:not(.dark) ::-webkit-scrollbar-thumb:hover { background: #64748b; }
     </style>
     <script type="importmap">
 {
@@ -52,7 +54,7 @@
 }
 </script>
   </head>
-  <body>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

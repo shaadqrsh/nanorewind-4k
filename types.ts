@@ -4,3 +4,9 @@ export interface ImageFile {
 }
 
 export type RestorationStatus = 'idle' | 'loading' | 'success' | 'error';
+
+export interface User {
+  email: string;
+  name?: string;
+  id?: string;
+}
