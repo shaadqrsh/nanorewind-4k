@@ -5,7 +5,6 @@ export interface Quota {
 
 const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:7860';
 
-// Helper to get token
 const getToken = () => localStorage.getItem('access_token');
 
 export const authService = {
@@ -24,7 +23,6 @@ export const authService = {
       }
 
       localStorage.setItem('access_token', data.session.access_token);
-      localStorage.setItem('user_email', data.user.email);
       return { success: true };
     } catch (e: any) {
       return { success: false, error: e.message };
@@ -56,25 +54,17 @@ export const authService = {
         if (token) {
              await fetch(`${BACKEND_URL}/api/auth/logout`, {
                 method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}` 
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
         }
     } catch (e) {
         console.error(e);
     } finally {
         localStorage.removeItem('access_token');
-        localStorage.removeItem('user_email');
     }
   },
 
   getCurrentUser: async (): Promise<string | null> => {
-    // Basic check if we have a token locally first to avoid flicker
-    const localEmail = localStorage.getItem('user_email');
-    if (!localEmail) return null;
-
-    // Verify validity with backend
     const token = getToken();
     if (!token) return null;
 
@@ -86,9 +76,7 @@ export const authService = {
             const data = await res.json();
             return data.user.email;
         } else {
-            // Token expired
             localStorage.removeItem('access_token');
-            localStorage.removeItem('user_email');
             return null;
         }
     } catch (e) {
@@ -108,7 +96,7 @@ export const authService = {
         if (!res.ok) return { allowed: false, remaining: 0 };
         
         const data = await res.json();
-        return data; // Backend now returns pre-calculated allowed/remaining/nextReset
+        return data;
     } catch (e) {
         return { allowed: false, remaining: 0 };
     }

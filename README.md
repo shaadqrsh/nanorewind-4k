@@ -1,50 +1,33 @@
 # NanoRewind 4K
 
-AI-powered image restoration application using Gemini 3 Pro and Supabase.
+AI-powered image restoration application using Gemini 3 Pro and Neon Postgres.
 
-## Architecture
+## 1. Database Setup (Neon)
 
-*   **Frontend**: React (Vercel) - No direct database access.
-*   **Backend**: Node.js/Express (Hugging Face Spaces / Docker) - Acts as an Auth Proxy and API Gateway.
-*   **Database**: Supabase (PostgreSQL) - Stores user profiles and credits.
-
-## 1. Database Setup (Supabase)
-
-1.  Create a Supabase project.
-2.  Go to the **SQL Editor**.
-3.  Copy and run the contents of `backend/supabase_schema.txt`. This sets up the profiles table and the secure credit deduction function.
+1.  Create a free project at [Neon.tech](https://neon.tech).
+2.  Open the **SQL Editor** in the Neon console.
+3.  Execute the contents of `backend/neon_schema.txt`.
+4.  Copy your **Connection String** (Pooled connection recommended).
 
 ## 2. Backend Deployment (Hugging Face Spaces)
 
-1.  Create a new Space on Hugging Face.
-2.  Select **Docker** as the SDK.
-3.  Upload the contents of the `backend/` folder (including `Dockerfile`, `package.json`, `index.js`).
-4.  Go to **Settings** -> **Variables and secrets** and add:
-    *   `SUPABASE_URL`: Your Supabase Project URL.
-    *   `SUPABASE_ANON_KEY`: Your Supabase **Anon** Key (Public).
-    *   `GEMINI_API_KEY`: Your Google Cloud API Key (Gemini enabled).
-    *   *Note: Do not use the Service Role Key.*
+1.  Create a new Space on Hugging Face (Docker SDK).
+2.  Upload `backend/` files.
+3.  Set Secrets in Space Settings:
+    *   `DATABASE_URL`: Your Neon Connection String.
+    *   `API_KEY`: Your Google Cloud API Key (Gemini enabled).
+    *   `JWT_SECRET`: A long random string for token signing.
 
 ## 3. Frontend Deployment (Vercel)
 
-1.  Push the root code to GitHub.
-2.  Import project into Vercel.
-3.  Set the Environment Variable:
-    *   `VITE_BACKEND_URL`: The URL of your Hugging Face Space (e.g., `https://username-space.hf.space`).
-    *   *Note: Do not set any Supabase keys here.*
+1.  Import the root directory into Vercel.
+2.  Set `VITE_BACKEND_URL` to your Hugging Face Space URL.
 
 ## Local Development
 
-1.  **Backend**:
-    ```bash
-    cd backend
-    npm install
-    # Create .env with keys
-    npm start
-    ```
-2.  **Frontend**:
-    ```bash
-    npm install
-    # Create .env with VITE_BACKEND_URL=http://localhost:7860
-    npm run dev
-    ```
+```bash
+cd backend
+npm install
+# Add .env with DATABASE_URL, API_KEY, JWT_SECRET
+npm start
+```

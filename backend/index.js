@@ -1,103 +1,106 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
+const { Pool } = require('pg');
 const { GoogleGenAI } = require('@google/genai');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const pkg = require('./package.json');
 
 const app = express();
 const port = process.env.PORT || 7860;
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+console.log(`Starting NanoRewind Backend v${pkg.version}`);
 
-// Init Clients
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY; // Use ANON key, not Service Role
-
-if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Missing Supabase URL or Anon Key");
-    process.exit(1);
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-// Helper to create a client scoped to the user's token
-const getUserClient = (token) => {
-    return createClient(supabaseUrl, supabaseAnonKey, {
-        global: {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        }
-    });
-};
-
+// Configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'nano-rewind-secret-key-4k';
 const MAX_CREDITS = 3;
 const REFILL_MS = 24 * 60 * 60 * 1000;
 
-// --- Auth Routes (Proxy) ---
+app.use(cors());
+app.use(express.json({ limit: '50mb' }));
+
+// Database Pool (Neon)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+// AI Client
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+// Middleware: Authenticate JWT
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ error: 'Access denied' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
+    req.user = user;
+    next();
+  });
+};
+
+// --- Auth Routes ---
 
 app.post('/api/auth/signup', async (req, res) => {
-    const { email, password } = req.body;
-    // For signup, we use a basic anon client
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
+      [email, hashedPassword]
+    );
+    res.status(201).json({ success: true, user: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Email already exists' });
+    console.error(err);
+    res.status(500).json({ error: 'Failed to create account' });
+  }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-    const { email, password } = req.body;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    if (error) return res.status(401).json({ error: error.message });
-    res.json(data);
-});
+  const { email, password } = req.body;
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
 
-app.post('/api/auth/logout', async (req, res) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (token) {
-        const supabase = getUserClient(token);
-        await supabase.auth.signOut();
-    }
-    res.json({ success: true });
-});
-
-app.get('/api/auth/me', async (req, res) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ error: 'No token' });
-
-    const supabase = getUserClient(token);
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (error || !user) return res.status(401).json({ error: 'Invalid token' });
-    res.json({ user });
-});
-
-// --- Quota Routes ---
-
-app.get('/api/quota', async (req, res) => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ error: 'No token' });
-
-    const supabase = getUserClient(token);
-    
-    // We get the profile. Since we are using the User's token, RLS applies.
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .single();
-
-    if (error || !profile) {
-        // If profile doesn't exist yet (race condition on signup trigger), return default "empty" or "full"
-        // Returning 0 to be safe
-        return res.json({ allowed: false, remaining: 0 });
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Logic for display purposes (Read-only logic)
-    // The "Write" logic happens in the DB Function during restore
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ 
+      session: { access_token: token },
+      user: { id: user.id, email: user.email }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  res.json({ user: req.user });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.json({ success: true });
+});
+
+// --- Quota & Restoration ---
+
+app.get('/api/quota', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT credits, last_refill FROM users WHERE id = $1', [req.user.id]);
+    const profile = result.rows[0];
+
+    if (!profile) return res.status(404).json({ error: 'User profile not found' });
+
     const now = Date.now();
     const lastRefill = new Date(profile.last_refill).getTime();
     const elapsed = now - lastRefill;
@@ -106,44 +109,49 @@ app.get('/api/quota', async (req, res) => {
     let currentCredits = profile.credits + gained;
     if (currentCredits > MAX_CREDITS) currentCredits = MAX_CREDITS;
     
-    let nextReset = undefined;
+    let nextReset = null;
     if (currentCredits < MAX_CREDITS) {
-        // next reset is when the current 24h block ends
-        nextReset = lastRefill + ((gained + 1) * REFILL_MS);
+      nextReset = lastRefill + ((gained + 1) * REFILL_MS);
     }
 
     res.json({
-        allowed: currentCredits > 0,
-        remaining: currentCredits,
-        nextReset
+      allowed: currentCredits > 0,
+      remaining: currentCredits,
+      nextReset
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch quota' });
+  }
 });
 
-// --- Restore Route ---
-
-app.post('/api/restore', async (req, res) => {
+app.post('/api/restore', authenticateToken, async (req, res) => {
   const { image, mimeType, prompt } = req.body;
-  const token = req.headers.authorization?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ error: 'Missing Authorization header' });
-  }
 
   try {
-    const supabase = getUserClient(token);
+    // 1. Atomically deduct credit using Postgres logic
+    const deductResult = await pool.query(`
+      WITH updated AS (
+        UPDATE users 
+        SET 
+          credits = CASE 
+            WHEN (credits + floor(extract(epoch from (now() - last_refill)) * 1000 / $2)) >= 1 
+            THEN LEAST($1, credits + floor(extract(epoch from (now() - last_refill)) * 1000 / $2)) - 1
+            ELSE credits 
+          END,
+          last_refill = CASE 
+            WHEN (credits + floor(extract(epoch from (now() - last_refill)) * 1000 / $2)) >= $1 THEN now()
+            ELSE last_refill + (floor(extract(epoch from (now() - last_refill)) * 1000 / $2) * interval '1 day')
+          END
+        WHERE id = $3 
+          AND (credits + floor(extract(epoch from (now() - last_refill)) * 1000 / $2)) >= 1
+        RETURNING id
+      )
+      SELECT EXISTS(SELECT 1 FROM updated) as success;
+    `, [MAX_CREDITS, REFILL_MS, req.user.id]);
 
-    // 1. Attempt to deduct credit securely via RPC
-    // We do NOT manually calculate and update here because we don't have the Service Role key.
-    // We rely on a Postgres function `attempt_restore` that runs with 'security definer' privileges on the DB side.
-    const { data: success, error: rpcError } = await supabase.rpc('attempt_deduct_credit');
-
-    if (rpcError) {
-        console.error("RPC Error", rpcError);
-        return res.status(500).json({ error: 'Database error handling credits.' });
-    }
-
-    if (!success) {
-        return res.status(402).json({ error: 'Daily credit limit reached.' });
+    if (!deductResult.rows[0].success) {
+      return res.status(402).json({ error: 'Daily credit limit reached.' });
     }
 
     // 2. Call Gemini
@@ -151,20 +159,12 @@ app.post('/api/restore', async (req, res) => {
       model: 'gemini-3-pro-image-preview',
       contents: {
         parts: [
-          {
-            inlineData: {
-              data: image,
-              mimeType: mimeType,
-            },
-          },
-          {
-            text: prompt,
-          },
+          { inlineData: { data: image, mimeType: mimeType } },
+          { text: prompt },
         ],
       },
     });
 
-    // Extract image
     let restoredImageBase64 = null;
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
@@ -183,14 +183,10 @@ app.post('/api/restore', async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    // If Gemini fails, we should ideally refund the credit.
-    // Since we don't have a service key, we'd need another RPC 'refund_credit'.
-    // For simplicity in this demo, we accept the risk or add:
-    // await supabase.rpc('refund_credit');
-    res.status(500).json({ error: err.message || 'Internal Server Error' });
+    res.status(500).json({ error: err.message || 'Restoration failed' });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
+  console.log(`Neon Backend listening on port ${port}`);
 });
