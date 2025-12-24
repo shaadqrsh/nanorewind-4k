@@ -1,33 +1,40 @@
-# NanoRewind 4K
+# NanoRewind 4K Setup
 
-AI-powered image restoration application using Gemini 3 Pro and Neon Postgres.
+Follow these steps to get the application running with Neon Auth and Gemini 3 Pro.
 
-## 1. Database Setup (Neon)
+## 1. Neon Database & Auth Setup
 
-1.  Create a free project at [Neon.tech](https://neon.tech).
-2.  Open the **SQL Editor** in the Neon console.
-3.  Execute the contents of `backend/neon_schema.txt`.
-4.  Copy your **Connection String** (Pooled connection recommended).
+1.  Create a project at [Neon.tech](https://neon.tech).
+2.  **Enable Auth**: Go to the **Auth** section in the Neon console.
+3.  **Database Schema**: Execute this in the Neon SQL Editor:
+    ```sql
+    CREATE TABLE IF NOT EXISTS users (
+      user_id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      credits INTEGER DEFAULT 3,
+      last_refill TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    ```
 
-## 2. Backend Deployment (Hugging Face Spaces)
+## 2. Configuration
 
-1.  Create a new Space on Hugging Face (Docker SDK).
-2.  Upload `backend/` files.
-3.  Set Secrets in Space Settings:
-    *   `DATABASE_URL`: Your Neon Connection String.
-    *   `API_KEY`: Your Google Cloud API Key (Gemini enabled).
-    *   `JWT_SECRET`: A long random string for token signing.
+Set these environment variables:
 
-## 3. Frontend Deployment (Vercel)
+### Backend
+*   `DATABASE_URL`: Your Neon Postgres connection string.
+*   `API_KEY`: Your Google Gemini API Key.
 
-1.  Import the root directory into Vercel.
-2.  Set `VITE_BACKEND_URL` to your Hugging Face Space URL.
+### Frontend
+*   `VITE_NEON_AUTH_URL`: Your Neon Auth project domain (e.g. `https://your-auth-subdomain.neon.tech`).
+*   `VITE_BACKEND_URL`: URL of your running backend.
 
-## Local Development
+## 3. Local Development
 
 ```bash
-cd backend
-npm install
-# Add .env with DATABASE_URL, API_KEY, JWT_SECRET
-npm start
+# Backend
+cd backend && npm install && npm start
+
+# Frontend
+npm install && npm run dev
 ```
