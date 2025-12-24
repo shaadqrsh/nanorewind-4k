@@ -10,7 +10,8 @@ const getEnv = (key: string, fallback: string) => {
 
 const BACKEND_URL = getEnv('VITE_BACKEND_URL', 'http://localhost:7860');
 
-let authClient: ReturnType<typeof createAuthClient> | null = null;
+// Type as any to avoid strict type inference issues with the auth library
+let authClient: any = null;
 
 export const setupAuth = async () => {
   try {

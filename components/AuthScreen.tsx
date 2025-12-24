@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { History, ArrowRight, ShieldCheck, Mail } from 'lucide-react';
+import { History, ArrowRight, ShieldCheck, Mail, User } from 'lucide-react';
 import { getAuth } from '../services/auth';
 import { Button } from './Button';
 
@@ -11,6 +11,7 @@ type AuthState = 'login' | 'signup' | 'verify';
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [view, setView] = useState<AuthState>('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -31,7 +32,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         if (error) throw error;
         onAuthSuccess();
       } else if (view === 'signup') {
-        const { error } = await auth.signUp.email({ email, password });
+        const { error } = await auth.signUp.email({ 
+          email, 
+          password, 
+          name // Required by Neon Auth
+        });
         if (error) throw error;
         setView('verify');
         setSuccessMsg("Check your email for a verification code.");
@@ -47,6 +52,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleView = () => {
+    setError(null);
+    setSuccessMsg(null);
+    if (view === 'login') setView('signup');
+    else setView('login');
   };
 
   return (
@@ -71,6 +83,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             {view !== 'verify' ? (
               <>
+                {view === 'signup' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1.5 ml-1">Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all"
+                      placeholder="Your Name"
+                      required
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-400 mb-1.5 ml-1">Email</label>
                   <input
@@ -79,6 +104,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all"
                     placeholder="you@example.com"
+                    required
                   />
                 </div>
                 <div>
@@ -89,6 +115,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all"
                     placeholder="••••••••"
+                    required
                   />
                 </div>
               </>
@@ -101,6 +128,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   onChange={(e) => setCode(e.target.value)}
                   className="w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-center tracking-widest font-bold"
                   placeholder="000000"
+                  required
                 />
               </div>
             )}
@@ -115,7 +143,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
           <div className="mt-6 text-center">
             <button 
-              onClick={() => setView(view === 'login' ? 'signup' : 'login')}
+              onClick={toggleView}
               className="text-sm text-slate-400 hover:text-banana-400 transition-colors"
             >
               {view === 'login' ? "Need an account? Sign up" : view === 'signup' ? "Already have an account? Sign in" : "Back to sign in"}
