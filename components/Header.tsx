@@ -13,7 +13,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout }) => {
 
   return (
     <>
-      <header className="bg-slate-900/90 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-50 shadow-lg">
+      <header className="bg-slate-900/90 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-50 shadow-lg shrink-0">
         <div className="container mx-auto px-4 h-18 py-3 flex items-center justify-between">
           
           {/* Logo Section */}
@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout }) => {
               <h1 className="text-xl font-bold text-white tracking-tight leading-none">
                 NanoRewind <span className="text-banana-400">4K</span>
               </h1>
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-1.5 mt-2">
                  <span className="text-[10px] font-bold text-banana-400 bg-banana-500/10 border border-banana-500/20 px-2 py-0.5 rounded-full shadow-sm">
                    Powered by Gemini 3 Pro
                  </span>

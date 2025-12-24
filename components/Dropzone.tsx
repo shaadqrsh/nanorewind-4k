@@ -12,7 +12,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
   const validateFile = (file: File): boolean => {
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      setError("Only JPG, PNG, and WebP files are supported. Animated images (GIF, SVG) are not allowed.");
+      setError("JPG, PNG, WebP only.");
       return false;
     }
     setError(null);
@@ -46,18 +46,15 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
       const file = e.target.files[0];
       if (validateFile(file)) {
         onFileSelect(file);
-      } else {
-        // Reset input so validation error can trigger again if same bad file is selected
-        e.target.value = '';
       }
     }
   }, [onFileSelect]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1 h-full">
         <label 
         className={`
-            relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200
+            relative flex flex-col items-center justify-center w-full h-full border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200
             ${isDragOver 
             ? 'border-banana-500 bg-banana-500/10' 
             : error 
@@ -69,18 +66,10 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         >
-        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
-            {isDragOver ? (
-            <UploadCloud className="w-12 h-12 text-banana-500 mb-4 animate-bounce" />
-            ) : (
-            <ImageIcon className={`w-12 h-12 mb-4 transition-colors ${error ? 'text-red-400' : 'text-slate-500 group-hover:text-banana-400'}`} />
-            )}
-            
-            <p className="mb-2 text-sm text-slate-300 font-medium">
-            <span className="font-semibold text-banana-400">Click to upload</span> or drag and drop
-            </p>
-            <p className="text-xs text-slate-500">
-            JPG, PNG, or WebP (Static images only)
+        <div className="flex flex-col items-center justify-center text-center px-4">
+            <UploadCloud className={`w-8 h-8 mb-2 transition-colors ${isDragOver ? 'text-banana-500 animate-bounce' : 'text-slate-500'}`} />
+            <p className="text-xs text-slate-300 font-medium">
+            <span className="font-semibold text-banana-400">Upload</span> or drag
             </p>
         </div>
         <input 
@@ -91,8 +80,8 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
         />
         </label>
         {error && (
-            <div className="flex items-center gap-2 text-xs text-red-400 px-2 animate-in fade-in slide-in-from-top-1">
-                <AlertCircle className="w-3 h-3" />
+            <div className="flex items-center gap-1 text-[10px] text-red-400 px-1">
+                <AlertCircle className="w-2.5 h-2.5" />
                 {error}
             </div>
         )}
