@@ -1,4 +1,12 @@
-const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:7860';
+const getEnv = (key: string, fallback: string) => {
+  // @ts-ignore
+  if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) return import.meta.env[key];
+  return fallback;
+};
+
+const BACKEND_URL = getEnv('VITE_BACKEND_URL', 'http://localhost:7860');
 
 /**
  * Restores an image by calling the dedicated backend.
