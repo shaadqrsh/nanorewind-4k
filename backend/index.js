@@ -53,17 +53,24 @@ const authenticateToken = async (req, res, next) => {
     
     req.user = { 
       id: decoded.sub,
-      email: decoded.email
+      email: decoded.email || 'user@example.com'
     };
 
     // Ensure user exists in our local record
-    await pool.query(
-      'INSERT INTO users (user_id, email) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING',
-      [req.user.id, req.user.email || 'user@example.com']
-    );
+    // We use a separate try/catch for the DB operation to distinguish auth vs db errors
+    try {
+        await pool.query(
+        'INSERT INTO users (user_id, email) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING',
+        [req.user.id, req.user.email]
+        );
+    } catch (dbErr) {
+        console.error("User creation failed:", dbErr);
+        // Continue anyway, maybe the user exists or select will handle it
+    }
 
     next();
   } catch (err) {
+    console.error("Auth Middleware Error:", err);
     res.status(403).json({ error: 'Auth failed' });
   }
 };
@@ -79,15 +86,32 @@ app.get('/api/auth-config', (req, res) => {
 app.get('/api/quota', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query('SELECT credits, last_refill FROM users WHERE user_id = $1', [req.user.id]);
-    const profile = result.rows[0];
+    
+    // Handle case where user might not exist despite middleware (e.g. race condition or insert fail)
+    let profile = result.rows[0];
+    if (!profile) {
+        // Fallback: Create and return default
+        await pool.query(
+            'INSERT INTO users (user_id, email) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING',
+            [req.user.id, req.user.email]
+        );
+        profile = { credits: MAX_CREDITS, last_refill: new Date() };
+    }
+
     const now = Date.now();
     const lastRefill = new Date(profile.last_refill).getTime();
     const elapsed = now - lastRefill;
     const gained = Math.floor(elapsed / REFILL_MS);
+    
     let currentCredits = Math.min(MAX_CREDITS, profile.credits + gained);
-    let nextReset = currentCredits < MAX_CREDITS ? lastRefill + ((gained + 1) * REFILL_MS) : null;
+    // Calculate next reset time if credits are not full
+    let nextReset = currentCredits < MAX_CREDITS 
+        ? lastRefill + ((gained + 1) * REFILL_MS) 
+        : null;
+        
     res.json({ allowed: currentCredits > 0, remaining: currentCredits, nextReset });
   } catch (err) {
+    console.error("Quota Error:", err);
     res.status(500).json({ error: 'Quota fetch failed' });
   }
 });
@@ -129,6 +153,7 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
     if (!restoredBase64) throw new Error("No image returned");
     res.json({ image: `data:image/png;base64,${restoredBase64}` });
   } catch (err) {
+    console.error("Restore Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

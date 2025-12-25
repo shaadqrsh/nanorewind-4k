@@ -41,21 +41,27 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
               
               {/* Credits Display */}
               <div className="flex flex-col items-end">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <div className="text-[10px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-500">
-                    Daily Credits
-                  </div>
-                  {quota?.nextReset && (
-                    <Countdown 
-                       targetDate={quota.nextReset} 
-                       className="text-slate-500" 
-                    />
+                <div className="flex items-center gap-2 mb-0.5 min-h-[16px]">
+                  {quota?.nextReset ? (
+                    <>
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500">
+                        Refill in
+                      </span>
+                      <Countdown 
+                         targetDate={quota.nextReset} 
+                         className="text-slate-500 dark:text-slate-400" 
+                      />
+                    </>
+                  ) : (
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-green-600 dark:text-green-500">
+                      Credits Full
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
                    <Zap className={`w-4 h-4 ${quota?.allowed ? 'text-banana-500 dark:text-banana-400 fill-banana-500 dark:fill-banana-400' : 'text-slate-400 dark:text-slate-600'}`} />
                    <span className={`text-lg font-bold ${quota?.allowed ? 'text-banana-600 dark:text-banana-400' : 'text-red-500 dark:text-red-400'}`}>
-                     {quota?.remaining || 0}
+                     {quota ? quota.remaining : '-'}
                    </span>
                    <span className="text-slate-400 dark:text-slate-600 text-sm font-medium">/ 3</span>
                 </div>

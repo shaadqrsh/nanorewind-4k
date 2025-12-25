@@ -173,10 +173,19 @@ export const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    const auth = getAuth();
-    await auth.signOut();
+    try {
+        const auth = getAuth();
+        await auth.signOut();
+    } catch (e) {
+        console.error("Logout failed", e);
+    }
+    
     setIsSignedIn(false);
     setUser(null);
+    setFile(null);
+    setRestoredImage(null);
+    setStatus('idle');
+    setError(null);
   };
 
   if (configError) {
@@ -210,6 +219,7 @@ export const App: React.FC = () => {
             });
         }
         setIsSignedIn(true);
+        refreshQuota(); // Ensure quota is fetched on fresh login
     });
   }} />;
 
