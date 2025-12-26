@@ -41,8 +41,12 @@ export const authService = {
         const session = data?.session;
         if (!session) return { allowed: false, remaining: 0 };
         
+        // Extract the correct JWT. Usually it's access_token or token, not the session ID itself.
+        // session.id is typically just a handle.
+        const token = (session as any).access_token || (session as any).token || session.id;
+
         const res = await fetch(`${BACKEND_URL}/api/quota`, {
-            headers: { 'Authorization': `Bearer ${session.id}` }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) return { allowed: false, remaining: 0 };
         return await res.json();

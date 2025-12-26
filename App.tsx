@@ -155,7 +155,10 @@ export const App: React.FC = () => {
       
       const finalPrompt = `${directives.join(" ")} Enhance portrait. Preserve identity. Sony A1 look. Neutral color. Same aspect ratio.`;
       
-      const restoredBase64 = await restoreImage(base64Data, mimeType, finalPrompt, session.id);
+      // Extract the correct token
+      const token = (session as any).access_token || (session as any).token || session.id;
+
+      const restoredBase64 = await restoreImage(base64Data, mimeType, finalPrompt, token);
       await refreshQuota();
       setRestoredImage(restoredBase64);
       setStatus('success');

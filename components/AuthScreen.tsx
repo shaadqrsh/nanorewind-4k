@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { History, ArrowRight, ShieldCheck, Mail, User, CheckCircle2 } from 'lucide-react';
+import { History, ArrowRight, ShieldCheck, Mail, User, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { getAuth } from '../services/auth';
 import { Button } from './Button';
 
@@ -14,6 +14,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -21,6 +22,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return; // Prevent double submission
+    
     setError(null);
     setSuccessMsg(null);
     setIsLoading(true);
@@ -43,36 +46,55 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       } else if (view === 'verify') {
         // @ts-ignore
         const { error: verifyError } = await auth.emailOtp?.verifyEmail ? auth.emailOtp.verifyEmail({ email, otp: code }) : (auth as any).verifyEmail ? (auth as any).verifyEmail({ email, code }) : { error: { message: 'Verify not supported' } };
-        if (verifyError) throw verifyError;
+        
+        if (verifyError) {
+            throw verifyError;
+        }
         
         // Success feedback
         setSuccessMsg("Email Verified! Logging you in...");
         
         // Attempt immediate login
-        const { error: loginError } = await auth.signIn.email({ email, password });
-        
-        if (loginError) {
-          // Fallback to login screen if auto-login fails (unlikely)
-          setView('login');
-          setSuccessMsg("Verified. Please sign in.");
-        } else {
-          // Delay briefly to show the success message then proceed
-          setTimeout(() => {
-            onAuthSuccess();
-          }, 1500);
-          return; // Skip turning off loading to prevent flicker
+        try {
+            const { error: loginError } = await auth.signIn.email({ email, password });
+            
+            if (loginError) {
+                // If auto-login fails, send them to login screen but keep success message clean
+                // Do NOT set 'error' state here to avoid conflicting messages
+                setIsLoading(false);
+                setView('login');
+                setSuccessMsg("Verification successful. Please sign in.");
+            } else {
+                // Login successful, delay briefly then redirect
+                setTimeout(() => {
+                    onAuthSuccess();
+                }, 1000);
+                // Keep isLoading true to prevent user interaction during redirect
+            }
+        } catch (loginErr) {
+            // Catch unexpected login errors
+             setIsLoading(false);
+             setView('login');
+             setSuccessMsg("Verification successful. Please sign in.");
         }
+        return; 
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed");
-    } finally {
       setIsLoading(false);
+    } finally {
+        // For non-verify views, always turn off loading. 
+        // For verify, we might keep it on if we are auto-logging in.
+        if (view !== 'verify') {
+             setIsLoading(false);
+        }
     }
   };
 
   const toggleView = () => {
     setError(null);
     setSuccessMsg(null);
+    setShowPassword(false);
     if (view === 'login') setView('signup');
     else setView('login');
   };
@@ -125,14 +147,24 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white"
-                    placeholder="••••••••"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white pr-10"
+                      placeholder="••••••••"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
@@ -157,7 +189,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
               </div>
             )}
 
-            <Button type="submit" className="w-full" isLoading={isLoading} icon={view === 'verify' ? undefined : ArrowRight}>
+            <Button 
+                type="submit" 
+                className="w-full" 
+                isLoading={isLoading} 
+                icon={view === 'verify' ? undefined : ArrowRight}
+                disabled={isLoading || (view === 'verify' && !!successMsg && !error)}
+            >
               {view === 'login' ? "Sign In" : view === 'signup' ? "Create Account" : "Verify & Login"}
             </Button>
           </form>
@@ -166,6 +204,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             <button 
               onClick={toggleView}
               className="text-sm text-slate-500 hover:text-banana-500 dark:text-slate-400 dark:hover:text-banana-400 transition-colors"
+              disabled={isLoading}
             >
               {view === 'login' ? "Need an account? Sign up" : view === 'signup' ? "Already have an account? Sign in" : "Back to sign in"}
             </button>
