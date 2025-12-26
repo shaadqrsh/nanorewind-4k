@@ -26,10 +26,8 @@ async function initDb() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
         credits INTEGER DEFAULT 3,
-        last_refill TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        last_refill TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `);
     console.log("Database initialized.");
@@ -60,8 +58,8 @@ const authenticateToken = async (req, res, next) => {
     // We use a separate try/catch for the DB operation to distinguish auth vs db errors
     try {
         await pool.query(
-        'INSERT INTO users (user_id, email) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING',
-        [req.user.id, req.user.email]
+        'INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING',
+        [req.user.id]
         );
     } catch (dbErr) {
         console.error("User creation failed:", dbErr);
@@ -92,8 +90,8 @@ app.get('/api/quota', authenticateToken, async (req, res) => {
     if (!profile) {
         // Fallback: Create and return default
         await pool.query(
-            'INSERT INTO users (user_id, email) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING',
-            [req.user.id, req.user.email]
+            'INSERT INTO users (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING',
+            [req.user.id]
         );
         profile = { credits: MAX_CREDITS, last_refill: new Date() };
     }

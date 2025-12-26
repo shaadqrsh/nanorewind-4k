@@ -15,6 +15,7 @@ import { Countdown } from './components/Countdown';
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false); // New state for data loading
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
 
@@ -80,12 +81,15 @@ export const App: React.FC = () => {
         setIsAuthReady(true);
         
         if (session) {
-          refreshQuota().then(q => {
+          // Wait for quota to load before showing the app
+          await refreshQuota().then(q => {
             if (q && !q.allowed) setShowZeroCreditsModal(true);
           });
         }
+        setIsDataLoaded(true); // Data is fully loaded
       } catch (err) {
         setConfigError("Failed to connect to authentication server.");
+        setIsDataLoaded(true); // Still load to show error
       }
     };
     init();
@@ -189,6 +193,7 @@ export const App: React.FC = () => {
     setRestoredImage(null);
     setStatus('idle');
     setError(null);
+    setIsDataLoaded(true);
   };
 
   if (configError) {
@@ -202,18 +207,20 @@ export const App: React.FC = () => {
     );
   }
 
-  if (!isAuthReady) {
+  // Combined Loading State: Auth must be initialized AND data (quota/user) must be loaded
+  if (!isAuthReady || (isSignedIn && !isDataLoaded)) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4 transition-colors duration-300">
         <Loader2 className="w-10 h-10 text-banana-500 animate-spin" />
+        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium animate-pulse">Loading profile...</p>
       </div>
     );
   }
 
   if (!isSignedIn) return <AuthScreen onAuthSuccess={() => {
-    // Refresh user data on login
+    setIsDataLoaded(false); // Start loading state for new session
     const auth = getAuth();
-    auth.getSession().then(({ data }) => {
+    auth.getSession().then(async ({ data }) => {
         if (data?.user) {
             setUser({
                 email: data.user.email,
@@ -221,8 +228,9 @@ export const App: React.FC = () => {
                 id: data.user.id
             });
         }
+        await refreshQuota(); // Ensure quota is fetched on fresh login
         setIsSignedIn(true);
-        refreshQuota(); // Ensure quota is fetched on fresh login
+        setIsDataLoaded(true); // Data loaded
     });
   }} />;
 
@@ -282,7 +290,7 @@ export const App: React.FC = () => {
                 <div className="flex-grow flex items-center justify-center bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden relative min-h-[400px] md:min-h-0">
                   {!file ? (
                     <div className="text-center p-8 text-slate-400 dark:text-slate-500"><Wand2 className="w-12 h-12 mx-auto mb-4 opacity-10" /><p className="text-sm">Ready for restoration.</p></div>
-                  ) : (<RestoredView originalUrl={file.previewUrl} restoredUrl={restoredImage} status={status} />)}
+                  ) : (<RestoredView originalUrl={file.previewUrl} restoredUrl={restoredImage} status={status} onRemove={handleReset} />)}
                 </div>
              </div>
           </div>

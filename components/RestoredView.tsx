@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Eye, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, History } from 'lucide-react';
+import { Download, Eye, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, History, Trash2, AlertTriangle } from 'lucide-react';
 import { RestorationStatus } from '../types';
 import { Button } from './Button';
 
@@ -7,13 +7,15 @@ interface RestoredViewProps {
   originalUrl: string;
   restoredUrl: string | null;
   status: RestorationStatus;
+  onRemove: () => void;
 }
 
 type ViewMode = 'original' | 'restored' | 'side-by-side' | 'slider';
 
-export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, restoredUrl, status }) => {
+export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, restoredUrl, status, onRemove }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('slider');
   const [sliderPos, setSliderPos] = useState(50);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -92,13 +94,35 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, restore
                 alt="Original Preview" 
                 className="max-w-full max-h-[400px] object-contain rounded-lg shadow-lg border border-slate-700" 
             />
-            <p className="mt-4 text-slate-400 text-sm">Ready to restore. Click the button on the left.</p>
+            <div className="mt-4 flex flex-col items-center gap-2">
+                <p className="text-slate-400 text-sm">Ready to restore. Click the button on the left.</p>
+                <button 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-red-400 hover:text-red-300 text-xs font-medium flex items-center gap-1 transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" /> Remove Image
+                </button>
+            </div>
+
+            {/* Confirmation Modal Inline for Idle State */}
+            {showDeleteConfirm && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 rounded-xl">
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-xs w-full shadow-2xl">
+                    <h3 className="text-lg font-bold text-white mb-2">Remove Image?</h3>
+                    <p className="text-slate-400 text-sm mb-4">This will clear the current image.</p>
+                    <div className="flex gap-2">
+                       <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 py-2 px-3 text-sm">Cancel</Button>
+                       <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 py-2 px-3 text-sm">Remove</Button>
+                    </div>
+                  </div>
+                </div>
+            )}
         </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div className="flex flex-col w-full h-full relative">
       {/* View Toggle Toolbar & Download Actions */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-900/80 border-b border-slate-800 backdrop-blur-sm z-10">
         <div className="flex flex-wrap gap-2 justify-center md:justify-start">
@@ -128,15 +152,46 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, restore
             </button>
         </div>
 
-        <Button 
-          href={restoredUrl} 
-          download="nanorewind-restored-4k.png"
-          icon={Download}
-          className="whitespace-nowrap py-2 px-5 text-sm"
-        >
-          Download 4K
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button 
+                onClick={() => setShowDeleteConfirm(true)}
+                variant="danger"
+                className="whitespace-nowrap py-2 px-3 text-sm"
+                title="Remove Image"
+            >
+                <Trash2 className="w-4 h-4" />
+            </Button>
+            <Button 
+            href={restoredUrl} 
+            download="nanorewind-restored-4k.png"
+            icon={Download}
+            className="whitespace-nowrap py-2 px-5 text-sm"
+            >
+            Download 4K
+            </Button>
+        </div>
       </div>
+
+      {/* Confirmation Modal Overlay */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center">
+                        <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Remove Image?</h3>
+                </div>
+                <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm">
+                    Are you sure? Any unsaved changes will be lost.
+                </p>
+                <div className="flex gap-3">
+                    <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 py-2 px-4 text-sm">Cancel</Button>
+                    <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 py-2 px-4 text-sm">Remove</Button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Main Image Area */}
       <div className="flex-grow relative w-full overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] bg-slate-950 flex items-center justify-center p-4">

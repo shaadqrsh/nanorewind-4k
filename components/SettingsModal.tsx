@@ -37,12 +37,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsLoading(true);
     setMessage(null);
     try {
-      // Stub for actual API call
-      await new Promise(r => setTimeout(r, 800));
+      const auth = getAuth();
+      // @ts-ignore - updateUser exists on the client
+      const { error } = await auth.updateUser({
+        name: name
+      });
+      
+      if (error) throw error;
+      
       onUpdateUser({ name });
       setMessage({ type: 'success', text: 'Profile updated successfully' });
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to update profile' });
+    } catch (err: any) {
+      console.error(err);
+      setMessage({ type: 'error', text: err.message || 'Failed to update profile' });
     } finally {
       setIsLoading(false);
     }
@@ -53,13 +60,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsLoading(true);
     setMessage(null);
     try {
-      // Stub for password update
-      await new Promise(r => setTimeout(r, 800));
+      const auth = getAuth();
+      // @ts-ignore - updateUser exists on the client for password changes
+      const { error } = await auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) throw error;
+      
       setMessage({ type: 'success', text: 'Password updated successfully' });
       setCurrentPassword('');
       setNewPassword('');
-    } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to update password' });
+    } catch (err: any) {
+      console.error(err);
+      setMessage({ type: 'error', text: err.message || 'Failed to update password' });
     } finally {
       setIsLoading(false);
     }
@@ -170,6 +184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                           </button>
                      </div>
+                     <p className="mt-1 text-xs text-slate-500">Not required if authenticated via OTP.</p>
                  </div>
                  <div>
                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
