@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, User, Lock, Save, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
+import { X, Moon, Sun, User, Lock, Save, Loader2, Mail } from 'lucide-react';
 import { Button } from './Button';
 import { authService } from '../services/auth';
 import { User as UserType } from '../types';
@@ -23,10 +23,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [name, setName] = useState(user.name || '');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -44,24 +40,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     } catch (err: any) {
       console.error(err);
       setMessage({ type: 'error', text: err.message || 'Failed to update profile' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setMessage(null);
-    try {
-      await authService.updatePassword(newPassword);
-
-      setMessage({ type: 'success', text: 'Password updated successfully' });
-      setCurrentPassword('');
-      setNewPassword('');
-    } catch (err: any) {
-      console.error(err);
-      setMessage({ type: 'error', text: err.message || 'Failed to update password' });
     } finally {
       setIsLoading(false);
     }
@@ -154,54 +132,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             {activeTab === 'security' && (
               <div className="space-y-6">
-                <form onSubmit={handleUpdatePassword} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
-                    <div className="relative">
-                      <input
-                        type={showCurrentPassword ? "text" : "password"}
-                        value={currentPassword}
-                        onChange={e => setCurrentPassword(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        tabIndex={-1}
-                      >
-                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">Not required if authenticated via OTP.</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showNewPassword ? "text" : "password"}
-                        value={newPassword}
-                        onChange={e => setNewPassword(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        tabIndex={-1}
-                      >
-                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="pt-2">
-                    <Button type="submit" isLoading={isLoading} icon={Save} className="w-full md:w-auto py-2.5">Update Password</Button>
-                  </div>
-                </form>
-
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Password Recovery</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Forgot your password? Click below to receive a reset email.</p>
+                <div>
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Password</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Click the button below to receive an email with instructions to reset your password.</p>
 
                   <Button
                     onClick={async () => {
@@ -217,7 +150,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }
                     }}
                     isLoading={isLoading}
-                    variant="secondary"
                     icon={Mail}
                     className="w-full md:w-auto"
                   >
