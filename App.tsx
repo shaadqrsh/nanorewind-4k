@@ -15,7 +15,7 @@ import { Countdown } from './components/Countdown';
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isDataLoaded, setIsDataLoaded] = useState(false); // New state for data loading
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
 
@@ -30,7 +30,7 @@ export const App: React.FC = () => {
     faces: true,
     sharpen: false
   });
-  
+
   const [restoredImage, setRestoredImage] = useState<string | null>(null);
   const [status, setStatus] = useState<RestorationStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -51,10 +51,10 @@ export const App: React.FC = () => {
 
   const refreshQuota = useCallback(async () => {
     const q = await authService.checkQuota();
-    setQuota({ 
-        allowed: q.allowed, 
-        remaining: q.remaining, 
-        nextReset: q.nextReset || 0 
+    setQuota({
+      allowed: q.allowed,
+      remaining: q.remaining,
+      nextReset: q.nextReset || 0
     });
     return q;
   }, []);
@@ -65,55 +65,63 @@ export const App: React.FC = () => {
       try {
         await setupAuth();
         const auth = getAuth();
-        const { data } = await auth.getSession();
-        const session = data?.session;
-        const currentUser = data?.user;
-        
+
+        // Initial session check
+        const { data: { session } } = await auth.auth.getSession();
+
+        const currentUser = session?.user;
+
         if (currentUser) {
-            setUser({
-                email: currentUser.email,
-                name: currentUser.name || undefined,
-                id: currentUser.id
-            });
-        }
-        
-        setIsSignedIn(!!session);
-        setIsAuthReady(true);
-        
-        if (session) {
-          // Wait for quota to load before showing the app
+          setUser({
+            email: currentUser.email || 'user@example.com',
+            name: currentUser.user_metadata?.name || undefined,
+            id: currentUser.id
+          });
+          setIsSignedIn(true);
+
+          // Wait for quota to load
           await refreshQuota().then(q => {
             if (q && !q.allowed) setShowZeroCreditsModal(true);
           });
         }
-        setIsDataLoaded(true); // Data is fully loaded
+
+        setIsAuthReady(true);
+        setIsDataLoaded(true);
+
+        // Listen for auth changes
+        const { data: { subscription } } = auth.auth.onAuthStateChange(async (_event, session) => {
+          const currentUser = session?.user;
+          if (currentUser) {
+            setUser({
+              email: currentUser.email || 'user@example.com',
+              name: currentUser.user_metadata?.name || undefined,
+              id: currentUser.id
+            });
+            setIsSignedIn(true);
+            await refreshQuota();
+          } else {
+            setUser(null);
+            setIsSignedIn(false);
+            setFile(null);
+            setRestoredImage(null);
+            setStatus('idle');
+          }
+        });
+
+        return () => {
+          subscription.unsubscribe();
+        }
+
       } catch (err) {
-        setConfigError("Failed to connect to authentication server.");
-        setIsDataLoaded(true); // Still load to show error
+        setConfigError("Failed to connect to authentication server. Check environment variables.");
+        setIsDataLoaded(true);
       }
     };
     init();
-    
+
     // Set initial theme
     document.documentElement.classList.add('dark');
   }, [refreshQuota]);
-
-  // Periodic Session Check
-  useEffect(() => {
-    if (!isAuthReady) return;
-    
-    const interval = setInterval(async () => {
-       try {
-         const auth = getAuth();
-         const { data } = await auth.getSession();
-         setIsSignedIn(!!data?.session);
-       } catch (e) {
-         // silent error during polling
-       }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [isAuthReady]);
 
   const handleFileSelect = useCallback((selectedFile: File) => {
     const reader = new FileReader();
@@ -131,14 +139,14 @@ export const App: React.FC = () => {
   const handleRestore = async () => {
     try {
       const auth = getAuth();
-      const { data } = await auth.getSession();
-      const session = data?.session;
+      const { data: { session } } = await auth.auth.getSession();
+
       if (!session) return;
 
       const currentQuota = await refreshQuota();
       if (!currentQuota?.allowed) {
-          setShowZeroCreditsModal(true);
-          return;
+        setShowZeroCreditsModal(true);
+        return;
       }
 
       if (!file) return;
@@ -149,18 +157,17 @@ export const App: React.FC = () => {
 
       const base64Data = file.previewUrl.split(',')[1];
       const mimeType = file.file.type;
-      
+
       const directives = [];
       if (promptOptions.scratches) directives.push("Erase cracks/tears.");
       if (promptOptions.color) directives.push("Fix color balance.");
       if (promptOptions.denoise) directives.push("Remove noise.");
       if (promptOptions.faces) directives.push("Restore facial details.");
       if (promptOptions.sharpen) directives.push("Correct blur.");
-      
+
       const finalPrompt = `${directives.join(" ")} Enhance portrait. Preserve identity. Sony A1 look. Neutral color. Same aspect ratio.`;
-      
-      // Extract the correct token
-      const token = (session as any).access_token || (session as any).token || session.id;
+
+      const token = session.access_token;
 
       const restoredBase64 = await restoreImage(base64Data, mimeType, finalPrompt, token);
       await refreshQuota();
@@ -181,19 +188,12 @@ export const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-        const auth = getAuth();
-        await auth.signOut();
+      const auth = getAuth();
+      await auth.auth.signOut();
+      // State updates handled by onAuthStateChange logic
     } catch (e) {
-        console.error("Logout failed", e);
+      console.error("Logout failed", e);
     }
-    
-    setIsSignedIn(false);
-    setUser(null);
-    setFile(null);
-    setRestoredImage(null);
-    setStatus('idle');
-    setError(null);
-    setIsDataLoaded(true);
   };
 
   if (configError) {
@@ -207,7 +207,6 @@ export const App: React.FC = () => {
     );
   }
 
-  // Combined Loading State: Auth must be initialized AND data (quota/user) must be loaded
   if (!isAuthReady || (isSignedIn && !isDataLoaded)) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4 transition-colors duration-300">
@@ -217,37 +216,22 @@ export const App: React.FC = () => {
     );
   }
 
-  if (!isSignedIn) return <AuthScreen onAuthSuccess={() => {
-    setIsDataLoaded(false); // Start loading state for new session
-    const auth = getAuth();
-    auth.getSession().then(async ({ data }) => {
-        if (data?.user) {
-            setUser({
-                email: data.user.email,
-                name: data.user.name || undefined,
-                id: data.user.id
-            });
-        }
-        await refreshQuota(); // Ensure quota is fetched on fresh login
-        setIsSignedIn(true);
-        setIsDataLoaded(true); // Data loaded
-    });
-  }} />;
+  if (!isSignedIn) return <AuthScreen onAuthSuccess={() => { }} />;
 
-  const buttonConfig = !quota.allowed 
+  const buttonConfig = !quota.allowed
     ? { text: 'Limit Reached', icon: XCircle, variant: 'danger' as const, disabled: true }
-    : status === 'loading' 
-    ? { text: 'Restoring...', icon: Wand2, variant: 'primary' as const, disabled: true }
-    : status === 'success'
-    ? { text: 'Restored', icon: Check, variant: 'primary' as const, disabled: true }
-    : { text: 'Restore Image', icon: Wand2, variant: 'primary' as const, disabled: !file };
+    : status === 'loading'
+      ? { text: 'Restoring...', icon: Wand2, variant: 'primary' as const, disabled: true }
+      : status === 'success'
+        ? { text: 'Restored', icon: Check, variant: 'primary' as const, disabled: true }
+        : { text: 'Restore Image', icon: Wand2, variant: 'primary' as const, disabled: !file };
 
   return (
     <div className="min-h-screen md:h-screen flex flex-col font-sans text-slate-900 dark:text-slate-100 md:overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-      <Header 
-        user={user} 
-        quota={quota} 
-        onLogout={handleLogout} 
+      <Header
+        user={user}
+        quota={quota}
+        onLogout={handleLogout}
         onOpenSettings={() => setShowSettings(true)}
       />
       <main className="flex-grow md:overflow-hidden container mx-auto px-4 py-4 max-w-7xl">
@@ -273,55 +257,55 @@ export const App: React.FC = () => {
               <PromptSelector options={promptOptions} onChange={setPromptOptions} />
             </div>
             <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xl backdrop-blur-sm shrink-0 mt-auto">
-                <Button onClick={handleRestore} disabled={buttonConfig.disabled} isLoading={status === 'loading'} icon={buttonConfig.icon} variant={buttonConfig.variant} className="w-full py-3">{buttonConfig.text}</Button>
-                {error && (
-                  <div className="mt-3 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-200 p-2 rounded-lg flex items-center gap-2 text-xs">
-                    <AlertCircle className="w-4 h-4 shrink-0" /><p className="truncate">{error}</p>
-                  </div>
-                )}
+              <Button onClick={handleRestore} disabled={buttonConfig.disabled} isLoading={status === 'loading'} icon={buttonConfig.icon} variant={buttonConfig.variant} className="w-full py-3">{buttonConfig.text}</Button>
+              {error && (
+                <div className="mt-3 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-200 p-2 rounded-lg flex items-center gap-2 text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0" /><p className="truncate">{error}</p>
+                </div>
+              )}
             </div>
           </div>
           <div className="lg:col-span-8 h-full md:overflow-hidden">
-             <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xl backdrop-blur-sm h-full flex flex-col md:overflow-hidden">
-                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 shrink-0">
-                  <span className="bg-banana-500 text-slate-900 rounded-lg w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
-                  Result
-                </h2>
-                <div className="flex-grow flex items-center justify-center bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden relative min-h-[400px] md:min-h-0">
-                  {!file ? (
-                    <div className="text-center p-8 text-slate-400 dark:text-slate-500"><Wand2 className="w-12 h-12 mx-auto mb-4 opacity-10" /><p className="text-sm">Ready for restoration.</p></div>
-                  ) : (<RestoredView originalUrl={file.previewUrl} restoredUrl={restoredImage} status={status} onRemove={handleReset} />)}
-                </div>
-             </div>
+            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xl backdrop-blur-sm h-full flex flex-col md:overflow-hidden">
+              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 shrink-0">
+                <span className="bg-banana-500 text-slate-900 rounded-lg w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
+                Result
+              </h2>
+              <div className="flex-grow flex items-center justify-center bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden relative min-h-[400px] md:min-h-0">
+                {!file ? (
+                  <div className="text-center p-8 text-slate-400 dark:text-slate-500"><Wand2 className="w-12 h-12 mx-auto mb-4 opacity-10" /><p className="text-sm">Ready for restoration.</p></div>
+                ) : (<RestoredView originalUrl={file.previewUrl} restoredUrl={restoredImage} status={status} onRemove={handleReset} />)}
+              </div>
+            </div>
           </div>
         </div>
       </main>
 
       {user && (
-        <SettingsModal 
-            isOpen={showSettings} 
-            onClose={() => setShowSettings(false)}
-            user={user}
-            isDark={isDark}
-            onToggleTheme={toggleTheme}
-            onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)}
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          user={user}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+          onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)}
         />
       )}
 
       {showZeroCreditsModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
-                <button onClick={() => setShowZeroCreditsModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white"><X className="w-5 h-5" /></button>
-                <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-6 border-4 border-slate-200 dark:border-slate-800"><Zap className="w-8 h-8 text-slate-400 dark:text-slate-500" /></div>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Out of Credits</h2>
-                    <p className="text-slate-600 dark:text-slate-400 mb-6">Daily restoration credits exhausted. Next refill in:</p>
-                    <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-8 py-4 mb-8">
-                        <Countdown targetDate={quota.nextReset} className="text-2xl font-mono text-banana-500 dark:text-banana-400" />
-                    </div>
-                    <Button onClick={() => setShowZeroCreditsModal(false)} variant="secondary" className="w-full">Close</Button>
-                </div>
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
+            <button onClick={() => setShowZeroCreditsModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white"><X className="w-5 h-5" /></button>
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-6 border-4 border-slate-200 dark:border-slate-800"><Zap className="w-8 h-8 text-slate-400 dark:text-slate-500" /></div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Out of Credits</h2>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">Daily restoration credits exhausted. Next refill in:</p>
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-8 py-4 mb-8">
+                <Countdown targetDate={quota.nextReset} className="text-2xl font-mono text-banana-500 dark:text-banana-400" />
+              </div>
+              <Button onClick={() => setShowZeroCreditsModal(false)} variant="secondary" className="w-full">Close</Button>
             </div>
+          </div>
         </div>
       )}
     </div>

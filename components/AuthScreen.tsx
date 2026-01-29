@@ -7,7 +7,7 @@ interface AuthScreenProps {
   onAuthSuccess: () => void;
 }
 
-type AuthState = 'login' | 'signup' | 'verify';
+type AuthState = 'login' | 'signup';
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [view, setView] = useState<AuthState>('login');
@@ -15,15 +15,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLoading) return; // Prevent double submission
-    
+    if (isLoading) return;
+
     setError(null);
     setSuccessMsg(null);
     setIsLoading(true);
@@ -31,64 +30,34 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     try {
       const auth = getAuth();
       if (view === 'login') {
-        const { error } = await auth.signIn.email({ email, password });
+        const { error } = await auth.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        onAuthSuccess();
+        // Auth state listener in App.tsx will handle the rest
       } else if (view === 'signup') {
-        const { error } = await auth.signUp.email({ 
-          email, 
-          password, 
-          name 
+        const { data, error } = await auth.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { name }
+          }
         });
         if (error) throw error;
-        setView('verify');
-        setSuccessMsg("Check your email for a verification code.");
-      } else if (view === 'verify') {
-        // @ts-ignore
-        const { error: verifyError } = await auth.emailOtp?.verifyEmail ? auth.emailOtp.verifyEmail({ email, otp: code }) : (auth as any).verifyEmail ? (auth as any).verifyEmail({ email, code }) : { error: { message: 'Verify not supported' } };
-        
-        if (verifyError) {
-            throw verifyError;
+
+        if (data.session) {
+          // User verified or auto-login worked
+          onAuthSuccess();
+        } else if (data.user) {
+          setSuccessMsg("Account created! Please check your email to verify your account before signing in.");
+          setView('login');
+          setIsLoading(false);
+          return;
         }
-        
-        // Success feedback
-        setSuccessMsg("Email Verified! Logging you in...");
-        
-        // Attempt immediate login
-        try {
-            const { error: loginError } = await auth.signIn.email({ email, password });
-            
-            if (loginError) {
-                // If auto-login fails, send them to login screen but keep success message clean
-                // Do NOT set 'error' state here to avoid conflicting messages
-                setIsLoading(false);
-                setView('login');
-                setSuccessMsg("Verification successful. Please sign in.");
-            } else {
-                // Login successful, delay briefly then redirect
-                setTimeout(() => {
-                    onAuthSuccess();
-                }, 1000);
-                // Keep isLoading true to prevent user interaction during redirect
-            }
-        } catch (loginErr) {
-            // Catch unexpected login errors
-             setIsLoading(false);
-             setView('login');
-             setSuccessMsg("Verification successful. Please sign in.");
-        }
-        return; 
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed");
       setIsLoading(false);
-    } finally {
-        // For non-verify views, always turn off loading. 
-        // For verify, we might keep it on if we are auto-logging in.
-        if (view !== 'verify') {
-             setIsLoading(false);
-        }
     }
+    // We don't unset isLoading here if successful login, because App.tsx will unmount us or we want to prevent interaction
   };
 
   const toggleView = () => {
@@ -114,99 +83,83 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             </div>
             <h1 className="text-3xl font-bold mb-2 text-slate-900 dark:text-white">NanoRewind <span className="text-banana-500 dark:text-banana-400">4K</span></h1>
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              {view === 'login' ? "Welcome back! Sign in to continue." : view === 'signup' ? "Create an account to start." : "Verify your email address."}
+              {view === 'login' ? "Welcome back! Sign in to continue." : "Create an account to start."}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {view !== 'verify' ? (
-              <>
-                {view === 'signup' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Name</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white"
-                      placeholder="Your Name"
-                      required
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white"
-                    placeholder="you@example.com"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Password</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white pr-10"
-                      placeholder="••••••••"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
+            {view === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Verification Code</label>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Name</label>
                 <input
                   type="text"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-center tracking-widest font-bold text-slate-900 dark:text-white"
-                  placeholder="000000"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white"
+                  placeholder="Your Name"
                   required
                 />
               </div>
             )}
+            <div>
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white"
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white pr-10"
+                  placeholder="••••••••"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
             {error && <div className="text-red-500 dark:text-red-400 text-xs bg-red-50 dark:bg-red-400/10 p-2 rounded-lg border border-red-200 dark:border-red-400/20">{error}</div>}
-            
+
             {successMsg && (
               <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-xs bg-green-50 dark:bg-green-400/10 p-3 rounded-lg border border-green-200 dark:border-green-400/20 font-medium animate-in zoom-in-95">
-                 <CheckCircle2 className="w-4 h-4" /> {successMsg}
+                <CheckCircle2 className="w-4 h-4" /> {successMsg}
               </div>
             )}
 
-            <Button 
-                type="submit" 
-                className="w-full" 
-                isLoading={isLoading} 
-                icon={view === 'verify' ? undefined : ArrowRight}
-                disabled={isLoading || (view === 'verify' && !!successMsg && !error)}
+            <Button
+              type="submit"
+              className="w-full"
+              isLoading={isLoading}
+              icon={ArrowRight}
+              disabled={isLoading}
             >
-              {view === 'login' ? "Sign In" : view === 'signup' ? "Create Account" : "Verify & Login"}
+              {view === 'login' ? "Sign In" : "Create Account"}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
-            <button 
+            <button
               onClick={toggleView}
               className="text-sm text-slate-500 hover:text-banana-500 dark:text-slate-400 dark:hover:text-banana-400 transition-colors"
               disabled={isLoading}
             >
-              {view === 'login' ? "Need an account? Sign up" : view === 'signup' ? "Already have an account? Sign in" : "Back to sign in"}
+              {view === 'login' ? "Need an account? Sign up" : "Already have an account? Sign in"}
             </button>
           </div>
         </div>
