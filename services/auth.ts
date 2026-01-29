@@ -21,13 +21,15 @@ export const authService = {
     const res = await fetch(`${BACKEND_URL}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
+      body: JSON.stringify({
+        ...params,
+        redirectTo: window.location.origin // Ensure validation links return to this app
+      })
     });
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-    // If auto-signin happens (Supabase behavior depends on confirm setting), handle it
     if (data.session) {
       setUserToken(data.session.access_token);
     }
@@ -56,7 +58,7 @@ export const authService = {
       await fetch(`${BACKEND_URL}/api/auth/logout`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
-      }).catch(() => { }); // Ignore errors
+      }).catch(() => { });
     }
     clearUserToken();
   },
@@ -65,7 +67,6 @@ export const authService = {
     const token = getUserToken();
     if (!token) return null;
 
-    // Verify token with backend
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -82,6 +83,44 @@ export const authService = {
     }
   },
 
+  // --- UPDATE METHODS ---
+
+  updateProfile: async (updates: { name?: string }) => {
+    const token = getUserToken();
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${BACKEND_URL}/api/auth/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(updates)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+    return data;
+  },
+
+  updatePassword: async (password: string) => {
+    const token = getUserToken();
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${BACKEND_URL}/api/auth/update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ password })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Update failed');
+    return data;
+  },
+
   // --- QUOTA METHODS ---
 
   checkQuota: async (): Promise<{ allowed: boolean; remaining: number; nextReset?: number }> => {
@@ -89,18 +128,12 @@ export const authService = {
       const token = getUserToken();
       if (!token) return { allowed: false, remaining: 0 };
 
-      const res = await fetch(`${BACKEND_URL}/api/auth/quota` /* This path might be wrong if backend didn't change, checking... */, {
+      const res = await fetch(`${BACKEND_URL}/api/quota`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      // Wait, did I change the backend route? No, it's /api/quota.
-      // Correcting URL.
-      const resQuota = await fetch(`${BACKEND_URL}/api/quota`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!resQuota.ok) return { allowed: false, remaining: 0 };
-      return await resQuota.json();
+      if (!res.ok) return { allowed: false, remaining: 0 };
+      return await res.json();
     } catch (e) {
       return { allowed: false, remaining: 0 };
     }

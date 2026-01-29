@@ -28,18 +28,57 @@ const globalSupabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// --- HELPERS ---
+
+// Helper to ensure profile exists using a user-scoped client
+// We must use the user's token because we only have Anon Key (no Service Role)
+const ensureProfileExists = async (session) => {
+  if (!session || !session.user || !session.access_token) return;
+
+  try {
+    const scopedClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${session.access_token}` } },
+      db: { schema: 'nanorewind-4k' }
+    });
+
+    const { data: profile, error: fetchErr } = await scopedClient
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', session.user.id)
+      .single();
+
+    // If not found, insert. Ignore PGRST116 (No Rows)
+    if (!profile && (!fetchErr || fetchErr.code === 'PGRST116')) {
+      await scopedClient.from('profiles').insert([{ user_id: session.user.id }]);
+    }
+  } catch (err) {
+    console.error("Profile creation failed:", err);
+    // We throw so the auth endpoint can decide what to do (usually generic error or log it)
+    throw new Error("Failed to initialize user profile.");
+  }
+};
+
 // --- AUTH ENDPOINTS ---
 
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name, redirectTo } = req.body;
   try {
     const { data, error } = await globalSupabase.auth.signUp({
       email,
       password,
-      options: { data: { name } }
+      options: {
+        data: { name },
+        emailRedirectTo: redirectTo
+      }
     });
 
     if (error) throw error;
+
+    // If auto-confirm is on, we get a session immediately. Initialize profile.
+    if (data.session) {
+      await ensureProfileExists(data.session);
+    }
+
     res.json(data);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -55,6 +94,12 @@ app.post('/api/auth/login', async (req, res) => {
     });
 
     if (error) throw error;
+
+    // Critical: Ensure profile exists before returning success
+    if (data.session) {
+      await ensureProfileExists(data.session);
+    }
+
     res.json(data);
   } catch (err) {
     res.status(401).json({ error: err.message });
@@ -130,17 +175,8 @@ const authenticateToken = async (req, res, next) => {
     };
     req.supabase = supabase; // Attach scoped client
 
-    // Ensure profile exists (Best effort, insert if missing)
-    // We allow INSERT via RLS for own profile
-    const { data: profile, error: fetchErr } = await supabase
-      .from('profiles')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!profile && (!fetchErr || fetchErr.code === 'PGRST116')) {
-      await supabase.from('profiles').insert([{ user_id: user.id }]);
-    }
+    // Redundant but safe check (in case they didn't login via our /login endpoint recently)
+    await ensureProfileExists({ user, access_token: token });
 
     next();
   } catch (err) {
