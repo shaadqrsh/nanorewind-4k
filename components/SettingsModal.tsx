@@ -73,14 +73,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </h3>
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Email Address</label>
                   <input type="email" disabled value={user.email} className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-500 dark:text-slate-400 cursor-not-allowed" />
                   <p className="mt-1 text-xs text-slate-500">Email cannot be changed.</p>
                 </div>
 
                 <form onSubmit={handleUpdateProfile} className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Display Name</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Display Name</label>
                     <input
                       type="text"
                       value={name}
