@@ -21,7 +21,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleTheme,
   onUpdateUser
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [name, setName] = useState(user.name || '');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -58,106 +57,100 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
+        <div className="flex-grow p-6 overflow-y-auto bg-white dark:bg-slate-900">
+          {message && (
+            <div className={`mb-6 p-3 rounded-lg text-sm flex items-center gap-2 ${message.type === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'}`}>
+              {message.type === 'success' ? <div className="w-2 h-2 rounded-full bg-current" /> : <div className="w-2 h-2 rounded-full bg-current" />}
+              {message.text}
+            </div>
+          )}
 
-          {/* Sidebar */}
-          <div className="w-full md:w-48 bg-slate-50 dark:bg-slate-950 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 flex md:flex-col shrink-0">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:py-4 text-sm font-medium transition-colors ${activeTab === 'profile' ? 'bg-white dark:bg-slate-900 text-banana-600 dark:text-banana-400 border-b-2 md:border-b-0 md:border-l-2 border-banana-500' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'}`}
-            >
-              <User className="w-4 h-4" /> Profile
-            </button>
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`flex-1 md:flex-none flex items-center gap-3 px-4 py-3 md:py-4 text-sm font-medium transition-colors ${activeTab === 'security' ? 'bg-white dark:bg-slate-900 text-banana-600 dark:text-banana-400 border-b-2 md:border-b-0 md:border-l-2 border-banana-500' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900'}`}
-            >
-              <Lock className="w-4 h-4" /> Security
-            </button>
-          </div>
-
-          {/* Panel */}
-          <div className="flex-grow p-6 overflow-y-auto bg-white dark:bg-slate-900">
-            {message && (
-              <div className={`mb-4 p-3 rounded-lg text-sm flex items-center gap-2 ${message.type === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400'}`}>
-                {message.type === 'success' ? <div className="w-2 h-2 rounded-full bg-current" /> : <div className="w-2 h-2 rounded-full bg-current" />}
-                {message.text}
-              </div>
-            )}
-
-            {activeTab === 'profile' && (
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
-                    <input type="email" disabled value={user.email} className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-500 dark:text-slate-400 cursor-not-allowed" />
-                    <p className="mt-1 text-xs text-slate-500">Email cannot be changed.</p>
-                  </div>
-
-                  <form onSubmit={handleUpdateProfile} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Display Name</label>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none"
-                      />
-                    </div>
-                    <div className="pt-2">
-                      <Button type="submit" isLoading={isLoading} icon={Save} className="w-full md:w-auto py-2.5">Save Changes</Button>
-                    </div>
-                  </form>
-                </div>
-
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Appearance</h3>
-                  <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-orange-500/10 text-orange-500'}`}>
-                        {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                      </div>
-                      <span className="font-medium text-slate-700 dark:text-slate-200">{isDark ? 'Dark Mode' : 'Light Mode'}</span>
-                    </div>
-                    <button
-                      onClick={onToggleTheme}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-banana-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}
-                    >
-                      <span className={`${isDark ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition`} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'security' && (
-              <div className="space-y-6">
+          <div className="space-y-8">
+            {/* Profile Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-banana-500" /> Profile
+              </h3>
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Password</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Click the button below to receive an email with instructions to reset your password.</p>
-
-                  <Button
-                    onClick={async () => {
-                      setIsLoading(true);
-                      setMessage(null);
-                      try {
-                        await authService.resetPassword(user.email);
-                        setMessage({ type: 'success', text: 'Reset email sent!' });
-                      } catch (e: any) {
-                        setMessage({ type: 'error', text: e.message || "Failed to send email" });
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
-                    isLoading={isLoading}
-                    icon={Mail}
-                    className="w-full md:w-auto"
-                  >
-                    Send Reset Email
-                  </Button>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
+                  <input type="email" disabled value={user.email} className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-500 dark:text-slate-400 cursor-not-allowed" />
+                  <p className="mt-1 text-xs text-slate-500">Email cannot be changed.</p>
                 </div>
+
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Display Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none"
+                    />
+                  </div>
+                  <div className="pt-2">
+                    <Button type="submit" isLoading={isLoading} icon={Save} className="w-full md:w-auto py-2.5">Save Changes</Button>
+                  </div>
+                </form>
               </div>
-            )}
+            </div>
+
+            <div className="h-px bg-slate-200 dark:bg-slate-800" />
+
+            {/* Appearance Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Moon className="w-5 h-5 text-banana-500" /> Appearance
+              </h3>
+              <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${isDark ? 'bg-indigo-500/10 text-indigo-400' : 'bg-orange-500/10 text-orange-500'}`}>
+                    {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                  </div>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{isDark ? 'Dark Mode' : 'Light Mode'}</span>
+                </div>
+                <button
+                  onClick={onToggleTheme}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-banana-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${isDark ? 'bg-slate-700' : 'bg-slate-300'}`}
+                >
+                  <span className={`${isDark ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="h-px bg-slate-200 dark:bg-slate-800" />
+
+            {/* Security Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Lock className="w-5 h-5 text-banana-500" /> Security
+              </h3>
+              <div>
+                <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Password Recovery</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Forgot your password? Click below to receive a reset email.</p>
+
+                <Button
+                  onClick={async () => {
+                    setIsLoading(true);
+                    setMessage(null);
+                    try {
+                      await authService.resetPassword(user.email);
+                      setMessage({ type: 'success', text: 'Reset email sent!' });
+                    } catch (e: any) {
+                      setMessage({ type: 'error', text: e.message || "Failed to send email" });
+                    } finally {
+                      setIsLoading(false);
+                    }
+                  }}
+                  isLoading={isLoading}
+                  variant="secondary"
+                  icon={Mail}
+                  className="w-full md:w-auto"
+                >
+                  Send Reset Email
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
