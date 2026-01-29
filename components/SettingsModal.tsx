@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Moon, Sun, User, Lock, Save, Loader2, Eye, EyeOff } from 'lucide-react';
+import { X, Moon, Sun, User, Lock, Save, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { Button } from './Button';
 import { authService } from '../services/auth';
 import { User as UserType } from '../types';
@@ -153,50 +153,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
 
             {activeTab === 'security' && (
-              <form onSubmit={handleUpdatePassword} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
-                  <div className="relative">
-                    <input
-                      type={showCurrentPassword ? "text" : "password"}
-                      value={currentPassword}
-                      onChange={e => setCurrentPassword(e.target.value)}
-                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                      tabIndex={-1}
-                    >
-                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+              <div className="space-y-6">
+                <form onSubmit={handleUpdatePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
+                    <div className="relative">
+                      <input
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        tabIndex={-1}
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">Not required if authenticated via OTP.</p>
                   </div>
-                  <p className="mt-1 text-xs text-slate-500">Not required if authenticated via OTP.</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
-                  <div className="relative">
-                    <input
-                      type={showNewPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={e => setNewPassword(e.target.value)}
-                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                      tabIndex={-1}
-                    >
-                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-banana-500 outline-none pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        tabIndex={-1}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
+                  <div className="pt-2">
+                    <Button type="submit" isLoading={isLoading} icon={Save} className="w-full md:w-auto py-2.5">Update Password</Button>
+                  </div>
+                </form>
+
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-6">
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Password Recovery</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Forgot your password? Click below to receive a reset email.</p>
+
+                  <Button
+                    onClick={async () => {
+                      setIsLoading(true);
+                      setMessage(null);
+                      try {
+                        await authService.resetPassword(user.email);
+                        setMessage({ type: 'success', text: 'Reset email sent!' });
+                      } catch (e: any) {
+                        setMessage({ type: 'error', text: e.message || "Failed to send email" });
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                    isLoading={isLoading}
+                    variant="secondary"
+                    icon={Mail}
+                    className="w-full md:w-auto"
+                  >
+                    Send Reset Email
+                  </Button>
                 </div>
-                <div className="pt-2">
-                  <Button type="submit" isLoading={isLoading} icon={Save} className="w-full md:w-auto py-2.5">Update Password</Button>
-                </div>
-              </form>
+              </div>
             )}
           </div>
         </div>
