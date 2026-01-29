@@ -17,6 +17,27 @@ const clearUserToken = () => localStorage.removeItem(TOKEN_KEY);
 export const authService = {
   // --- AUTH METHODS ---
 
+  setSession: (token: string) => {
+    setUserToken(token);
+  },
+
+  handleEmailRedirect: () => {
+    const hash = window.location.hash;
+    if (!hash) return null;
+
+    // Parse hash params (access_token, etc)
+    const params = new URLSearchParams(hash.substring(1)); // remove #
+    const accessToken = params.get('access_token');
+
+    if (accessToken) {
+      setUserToken(accessToken);
+      // Clear hash to clean up URL
+      window.history.replaceState(null, '', window.location.pathname);
+      return accessToken;
+    }
+    return null;
+  },
+
   signUp: async (params: { email: string; password: string; name?: string }) => {
     const res = await fetch(`${BACKEND_URL}/api/auth/signup`, {
       method: 'POST',

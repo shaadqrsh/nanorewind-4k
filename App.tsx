@@ -63,6 +63,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
+        // Check for Email Redirect (Hash) first
+        authService.handleEmailRedirect();
+
         // Authenticate via Backend Me Endpoint
         const session = await authService.getSession();
 

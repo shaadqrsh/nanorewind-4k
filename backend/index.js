@@ -23,27 +23,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   process.exit(1);
 }
 
-// Global client for public auth operations (Sign Up, Sign In)
 const globalSupabase = createClient(supabaseUrl, supabaseAnonKey);
-
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- HELPERS ---
 
+// Helper to ensure profile exists (used by /me or after successful signup)
 const ensureProfileExists = async (session) => {
-  if (!session || !session.user || !session.access_token) {
-    console.log("ensureProfileExists: Missing session/user/token", {
-      hasSession: !!session,
-      hasUser: !!session?.user,
-      hasToken: !!session?.access_token
-    });
-    return;
-  }
+  if (!session || !session.user || !session.access_token) return;
 
   try {
-    console.log(`ensureProfileExists: Checking profile for ${session.user.id}`);
-    // Create a client scoped to the user using their access token
-    // This effectively "logs in" as the user for RLS purposes
     const scopedClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${session.access_token}` } },
       db: { schema: 'nanorewind-4k' }
@@ -55,34 +44,38 @@ const ensureProfileExists = async (session) => {
       .eq('user_id', session.user.id)
       .single();
 
-    if (fetchErr && fetchErr.code !== 'PGRST116') {
-      console.error("ensureProfileExists: Fetch error", fetchErr);
-    }
-
     if (!profile && (!fetchErr || fetchErr.code === 'PGRST116')) {
-      console.log(`ensureProfileExists: Creating profile for ${session.user.id}`);
-      const { error: insertErr } = await scopedClient.from('profiles').insert([{ user_id: session.user.id }]);
-      if (insertErr) {
-        console.error("ensureProfileExists: Insert error", insertErr);
-        // IMPORTANT: If RLS denies this, we need to know.
-        throw insertErr;
-      }
-      console.log("ensureProfileExists: Profile created successfully");
-    } else {
-      console.log("ensureProfileExists: Profile already exists");
+      await scopedClient.from('profiles').insert([{ user_id: session.user.id }]);
     }
   } catch (err) {
-    console.error("Profile creation failed:", err);
-    throw new Error(`Failed to initialize user profile: ${err.message}`);
+    // Silent fail safely, or log if critical
+    console.error("Profile creation failed:", err.message);
   }
 };
+
+// Check if profile exists (used by Login to enforce strict access)
+const checkProfileExists = async (session) => {
+  if (!session || !session.user || !session.access_token) return false;
+
+  const scopedClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${session.access_token}` } },
+    db: { schema: 'nanorewind-4k' }
+  });
+
+  const { data: profile } = await scopedClient
+    .from('profiles')
+    .select('user_id')
+    .eq('user_id', session.user.id)
+    .single();
+
+  return !!profile;
+};
+
 
 // --- AUTH ENDPOINTS ---
 
 app.post('/api/auth/signup', async (req, res) => {
   const { email, password, name, redirectTo } = req.body;
-  console.log("Signup Request:", { email, name, redirectTo });
-
   try {
     const { data, error } = await globalSupabase.auth.signUp({
       email,
@@ -93,52 +86,43 @@ app.post('/api/auth/signup', async (req, res) => {
       }
     });
 
-    if (error) {
-      console.error("Signup Supabase Error:", error);
-      throw error;
-    }
+    if (error) throw error;
 
-    console.log("Signup Success:", { user: data.user?.id, hasSession: !!data.session });
-
+    // If auto-confirm is on (session returned), ensure profile.
     if (data.session) {
       await ensureProfileExists(data.session);
-    } else {
-      console.log("Signup: No session returned (Email confirmation required?)");
     }
 
     res.json(data);
   } catch (err) {
-    console.error("Signup Endpoint Error:", err);
     res.status(400).json({ error: err.message });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  console.log("Login Request:", { email });
-
   try {
     const { data, error } = await globalSupabase.auth.signInWithPassword({
       email,
       password
     });
 
-    if (error) {
-      console.error("Login Supabase Error:", error);
-      throw error;
-    }
+    if (error) throw error;
 
-    console.log("Login Success:", { user: data.user?.id });
-
+    // STRICT CHECK: Do NOT auto-create profile here.
+    // If the user hasn't "Signed Up" for this app (meaning created a profile via signup or email verify),
+    // they should not be allowed to just login with credentials from another app.
     if (data.session) {
-      await ensureProfileExists(data.session);
+      const hasProfile = await checkProfileExists(data.session);
+      if (!hasProfile) {
+        // Optional: Sign them out to kill the session we just created
+        await globalSupabase.auth.signOut(data.session.access_token);
+        return res.status(403).json({ error: "Account not registered for this application. Please Sign Up." });
+      }
     }
 
     res.json(data);
   } catch (err) {
-    console.error("Login Endpoint Error:", err);
-    // 401 is appropriate here if profile creation fails (system failure effectively for this user)
-    // but the message will help debugging
     res.status(401).json({ error: err.message });
   }
 });
@@ -151,6 +135,11 @@ app.get('/api/auth/me', async (req, res) => {
   try {
     const { data: { user }, error } = await globalSupabase.auth.getUser(token);
     if (error || !user) throw new Error("Invalid token");
+
+    // LENIENT: If they have a valid token (e.g. from Email Link), ensure profile exists.
+    // This bridges the "Signup -> Email -> Login" gap.
+    await ensureProfileExists({ user, access_token: token });
+
     res.json({ user });
   } catch (err) {
     res.status(401).json({ error: "Invalid session" });
@@ -207,14 +196,6 @@ const authenticateToken = async (req, res, next) => {
     req.user = { id: user.id, email: user.email };
     req.supabase = supabase;
 
-    // Verbose logging for middleware profile check
-    // We do NOT block here to prevent loops, but we log
-    try {
-      await ensureProfileExists({ user, access_token: token });
-    } catch (e) {
-      console.error("Middleware EnsureProfile fail (non-blocking)", e);
-    }
-
     next();
   } catch (err) {
     console.error("Auth Middleware Error:", err);
@@ -248,7 +229,6 @@ app.get('/api/quota', authenticateToken, async (req, res) => {
       .single();
 
     if (error || !profile) {
-      console.error("Quota: Profile not found for", req.user.id);
       return res.status(500).json({ error: 'Profile not found' });
     }
 
