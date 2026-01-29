@@ -6,7 +6,7 @@ import { AuthScreen } from './components/AuthScreen';
 import { PromptSelector, PromptOptions } from './components/PromptSelector';
 import { SettingsModal } from './components/SettingsModal';
 import { restoreImage } from './services/gemini';
-import { setupAuth, getAuth, authService } from './services/auth';
+import { authService } from './services/auth';
 import { ImageFile, RestorationStatus, User } from './types';
 import { AlertCircle, Wand2, Check, Zap, X, XCircle, Loader2 } from 'lucide-react';
 import { Button } from './components/Button';
@@ -63,19 +63,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        await setupAuth();
-        const auth = getAuth();
+        // Authenticate via Backend Me Endpoint
+        const session = await authService.getSession();
 
-        // Initial session check
-        const { data: { session } } = await auth.auth.getSession();
-
-        const currentUser = session?.user;
-
-        if (currentUser) {
+        if (session && session.user) {
           setUser({
-            email: currentUser.email || 'user@example.com',
-            name: currentUser.user_metadata?.name || undefined,
-            id: currentUser.id
+            email: session.user.email || 'user@example.com',
+            name: session.user.user_metadata?.name || undefined,
+            id: session.user.id
           });
           setIsSignedIn(true);
 
@@ -83,37 +78,18 @@ export const App: React.FC = () => {
           await refreshQuota().then(q => {
             if (q && !q.allowed) setShowZeroCreditsModal(true);
           });
+        } else {
+          setIsSignedIn(false);
+          setUser(null);
         }
 
         setIsAuthReady(true);
         setIsDataLoaded(true);
 
-        // Listen for auth changes
-        const { data: { subscription } } = auth.auth.onAuthStateChange(async (_event, session) => {
-          const currentUser = session?.user;
-          if (currentUser) {
-            setUser({
-              email: currentUser.email || 'user@example.com',
-              name: currentUser.user_metadata?.name || undefined,
-              id: currentUser.id
-            });
-            setIsSignedIn(true);
-            await refreshQuota();
-          } else {
-            setUser(null);
-            setIsSignedIn(false);
-            setFile(null);
-            setRestoredImage(null);
-            setStatus('idle');
-          }
-        });
-
-        return () => {
-          subscription.unsubscribe();
-        }
-
       } catch (err) {
-        setConfigError("Failed to connect to authentication server. Check environment variables.");
+        // Silent fail on init, just show login screen if needed, or error if config missing
+        console.error("Auth init failed", err);
+        setIsAuthReady(true);
         setIsDataLoaded(true);
       }
     };
@@ -138,10 +114,8 @@ export const App: React.FC = () => {
 
   const handleRestore = async () => {
     try {
-      const auth = getAuth();
-      const { data: { session } } = await auth.auth.getSession();
-
-      if (!session) return;
+      const token = authService.getToken();
+      if (!token) return;
 
       const currentQuota = await refreshQuota();
       if (!currentQuota?.allowed) {
@@ -167,8 +141,6 @@ export const App: React.FC = () => {
 
       const finalPrompt = `${directives.join(" ")} Enhance portrait. Preserve identity. Sony A1 look. Neutral color. Same aspect ratio.`;
 
-      const token = session.access_token;
-
       const restoredBase64 = await restoreImage(base64Data, mimeType, finalPrompt, token);
       await refreshQuota();
       setRestoredImage(restoredBase64);
@@ -187,13 +159,28 @@ export const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    try {
-      const auth = getAuth();
-      await auth.auth.signOut();
-      // State updates handled by onAuthStateChange logic
-    } catch (e) {
-      console.error("Logout failed", e);
+    await authService.signOut();
+    setIsSignedIn(false);
+    setUser(null);
+    setFile(null);
+    setRestoredImage(null);
+    setStatus('idle');
+  };
+
+  const handleAuthSuccess = async () => {
+    // Called after AuthScreen success (login/signup)
+    setIsDataLoaded(false);
+    const session = await authService.getSession();
+    if (session && session.user) {
+      setUser({
+        email: session.user.email || 'user@example.com',
+        name: session.user.user_metadata?.name || undefined,
+        id: session.user.id
+      });
+      setIsSignedIn(true);
+      await refreshQuota();
     }
+    setIsDataLoaded(true);
   };
 
   if (configError) {
@@ -216,7 +203,7 @@ export const App: React.FC = () => {
     );
   }
 
-  if (!isSignedIn) return <AuthScreen onAuthSuccess={() => { }} />;
+  if (!isSignedIn) return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
 
   const buttonConfig = !quota.allowed
     ? { text: 'Limit Reached', icon: XCircle, variant: 'danger' as const, disabled: true }

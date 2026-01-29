@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { History, ArrowRight, ShieldCheck, Mail, User, CheckCircle2, Eye, EyeOff } from 'lucide-react';
-import { getAuth } from '../services/auth';
+import { authService } from '../services/auth';
 import { Button } from './Button';
 
 interface AuthScreenProps {
@@ -28,36 +28,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     setIsLoading(true);
 
     try {
-      const auth = getAuth();
       if (view === 'login') {
-        const { error } = await auth.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        // Auth state listener in App.tsx will handle the rest
+        const data = await authService.signIn({ email, password });
+        if (data.session) {
+          onAuthSuccess();
+        }
       } else if (view === 'signup') {
-        const { data, error } = await auth.auth.signUp({
+        const data = await authService.signUp({
           email,
           password,
-          options: {
-            data: { name }
-          }
+          name
         });
-        if (error) throw error;
 
         if (data.session) {
-          // User verified or auto-login worked
           onAuthSuccess();
         } else if (data.user) {
-          setSuccessMsg("Account created! Please check your email to verify your account before signing in.");
+          setSuccessMsg("Account created! If email verification is enabled, please check your inbox.");
           setView('login');
           setIsLoading(false);
-          return;
         }
       }
     } catch (err: any) {
       setError(err.message || "Authentication failed");
       setIsLoading(false);
     }
-    // We don't unset isLoading here if successful login, because App.tsx will unmount us or we want to prevent interaction
   };
 
   const toggleView = () => {

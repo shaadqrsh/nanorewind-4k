@@ -14,31 +14,92 @@ const REFILL_MS = 24 * 60 * 60 * 1000;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Initialize Supabase Admin Client
-// We need Service Role Key to bypass RLS (though for now we only read/write profiles as admin)
-// and to manage users if needed.
+// Initialize Supabase Clients
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error("Missing Supabase URL or Service Role Key.");
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Missing Supabase URL or Anon Key.");
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  db: { schema: 'nanorewind-4k' }
-});
+// Global client for public auth operations (Sign Up, Sign In)
+const globalSupabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Verification middleware using Supabase Auth
+// --- AUTH ENDPOINTS ---
+
+app.post('/api/auth/signup', async (req, res) => {
+  const { email, password, name } = req.body;
+  try {
+    const { data, error } = await globalSupabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } }
+    });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const { data, error } = await globalSupabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
+
+app.get('/api/auth/me', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Missing token' });
+
+  try {
+    const { data: { user }, error } = await globalSupabase.auth.getUser(token);
+    if (error || !user) throw new Error("Invalid token");
+    res.json({ user });
+  } catch (err) {
+    res.status(401).json({ error: "Invalid session" });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token) {
+    await globalSupabase.auth.signOut(token).catch(() => { });
+  }
+  res.json({ success: true });
+});
+
+// --- MIDDLEWARE ---
+
+// Verification middleware using Supabase Auth (User Context)
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Missing token' });
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    // Create a client scoped to this user
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      db: { schema: 'nanorewind-4k' }
+    });
+
+    const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) throw new Error("Invalid token");
 
@@ -46,17 +107,17 @@ const authenticateToken = async (req, res, next) => {
       id: user.id,
       email: user.email
     };
+    req.supabase = supabase; // Attach scoped client
 
-    // Ensure profile exists
-    // We try to select, if missing we insert.
+    // Ensure profile exists (Best effort, insert if missing)
+    // We allow INSERT via RLS for own profile
     const { data: profile, error: fetchErr } = await supabase
       .from('profiles')
-      .select('*')
+      .select('user_id')
       .eq('user_id', user.id)
       .single();
 
     if (!profile && (!fetchErr || fetchErr.code === 'PGRST116')) {
-      // Create profile
       await supabase.from('profiles').insert([{ user_id: user.id }]);
     }
 
@@ -67,15 +128,7 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Endpoint for frontend to get the Auth URL - Not needed for Supabase as URL is in frontend env
-// But we keep the route to not break frontend if it calls it, though we removed the call in frontend auth.ts
-app.get('/api/auth-config', (req, res) => {
-  // Deprecated for Supabase flow, but keeping for compatibility if needed? 
-  // Actually frontend auth.ts was updated to NOT call this.
-  res.json({ message: "Use Supabase client in frontend" });
-});
-
-// Helper to calculate credits
+// Helper for Quota Read
 function calculateCredits(profile) {
   const now = Date.now();
   const lastRefill = new Date(profile.last_refill).getTime();
@@ -84,31 +137,27 @@ function calculateCredits(profile) {
 
   let currentCredits = Math.min(MAX_CREDITS, profile.credits + gained);
 
-  // Calculate next reset time
-  // If we are full, no next reset. 
-  // If not full, it's (gained + 1) * REFILL_MS from last_refill
   let nextReset = currentCredits < MAX_CREDITS
     ? lastRefill + ((gained + 1) * REFILL_MS)
     : null;
 
-  return { currentCredits, gained, nextReset, lastRefill };
+  return { currentCredits, nextReset };
 }
 
 app.get('/api/quota', authenticateToken, async (req, res) => {
   try {
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await req.supabase
       .from('profiles')
       .select('*')
       .eq('user_id', req.user.id)
       .single();
 
     if (error || !profile) {
-      // Should have been created in middleware
+      // Fallback for race conditions if middleware insert failed/skipped
       return res.status(500).json({ error: 'Profile not found' });
     }
 
     const { currentCredits, nextReset } = calculateCredits(profile);
-
     res.json({ allowed: currentCredits > 0, remaining: currentCredits, nextReset });
   } catch (err) {
     console.error("Quota Error:", err);
@@ -119,57 +168,17 @@ app.get('/api/quota', authenticateToken, async (req, res) => {
 app.post('/api/restore', authenticateToken, async (req, res) => {
   const { image, mimeType, prompt } = req.body;
   try {
-    // 1. Fetch Profile
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .single();
+    // 1. Secure Credit Deduction via RPC
+    const { data: result, error: rpcError } = await req.supabase
+      .rpc('deduct_credits');
 
-    if (!profile) return res.status(500).json({ error: 'Profile missing' });
+    if (rpcError) throw rpcError;
 
-    // 2. Calculate Credits
-    let { currentCredits, gained, lastRefill } = calculateCredits(profile);
-
-    if (currentCredits < 1) {
-      return res.status(402).json({ error: 'Out of credits' });
+    if (!result.success) {
+      return res.status(402).json({ error: result.error || 'Out of credits' });
     }
 
-    // 3. Deduct & Update
-    const newCredits = currentCredits - 1;
-    let newLastRefill;
-
-    // Logic: 
-    // If we were at max (or would have reached max), reset timeline to NOW.
-    // Else (we were replenishing), assume we consumed one, so we just shift the timeline?
-    // Actually, to be fair:
-    // If we gained credits, we should advance last_refill so users don't get "double dip".
-    // Example: last_refill was 25 hours ago. Gained 1. Remaining surplus 1 hour.
-    // If we use 'now', we lose that 1 hour.
-    // If we use 'last_refill + 24h', we keep the 1 hour progress.
-    // BUT if we reached cap, we stop accumulating, so last_refill should be reset to avoid "instant refill" since the "gained" was capped.
-
-    if (profile.credits + gained >= MAX_CREDITS) {
-      // We hit the cap. Reset logic to now.
-      newLastRefill = new Date().toISOString();
-    } else {
-      // We haven't hit cap, just advance the refill time by the days we gained
-      // so `now - newLastRefill` still = `surplus time`
-      const advanceMs = gained * REFILL_MS;
-      newLastRefill = new Date(lastRefill + advanceMs).toISOString();
-    }
-
-    const { error: updateErr } = await supabase
-      .from('profiles')
-      .update({
-        credits: newCredits,
-        last_refill: newLastRefill
-      })
-      .eq('user_id', req.user.id);
-
-    if (updateErr) throw updateErr;
-
-    // 4. Generate Content
+    // 2. Generate Content
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
       contents: { parts: [{ inlineData: { data: image, mimeType: mimeType } }, { text: prompt }] },
@@ -183,7 +192,6 @@ app.post('/api/restore', authenticateToken, async (req, res) => {
     res.json({ image: `data:image/png;base64,${restoredBase64}` });
   } catch (err) {
     console.error("Restore Error:", err);
-    // Refund? (Complex to handle failure vs credits, for now strict deduction)
     res.status(500).json({ error: err.message });
   }
 });
