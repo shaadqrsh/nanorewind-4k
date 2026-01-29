@@ -84,6 +84,27 @@ app.post('/api/auth/logout', async (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/auth/update', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Missing token' });
+
+  const { name, password } = req.body;
+  const updates = {};
+  if (name !== undefined) updates.data = { name };
+  if (password !== undefined) updates.password = password;
+
+  if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No updates provided' });
+
+  try {
+    const { error } = await globalSupabase.auth.updateUser(token, updates);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // --- MIDDLEWARE ---
 
 // Verification middleware using Supabase Auth (User Context)
