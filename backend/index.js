@@ -28,7 +28,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- HELPERS ---
 
-// Helper to ensure profile exists (used by /me or after successful signup)
+// Helper to ensure profile exists using a user-scoped client
 const ensureProfileExists = async (session) => {
   if (!session || !session.user || !session.access_token) return;
 
@@ -48,29 +48,9 @@ const ensureProfileExists = async (session) => {
       await scopedClient.from('profiles').insert([{ user_id: session.user.id }]);
     }
   } catch (err) {
-    // Silent fail safely, or log if critical
     console.error("Profile creation failed:", err.message);
   }
 };
-
-// Check if profile exists (used by Login to enforce strict access)
-const checkProfileExists = async (session) => {
-  if (!session || !session.user || !session.access_token) return false;
-
-  const scopedClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${session.access_token}` } },
-    db: { schema: 'nanorewind-4k' }
-  });
-
-  const { data: profile } = await scopedClient
-    .from('profiles')
-    .select('user_id')
-    .eq('user_id', session.user.id)
-    .single();
-
-  return !!profile;
-};
-
 
 // --- AUTH ENDPOINTS ---
 
@@ -88,7 +68,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
     if (error) throw error;
 
-    // If auto-confirm is on (session returned), ensure profile.
+    // If auto-confirm is on, we get a session immediately. Initialize profile.
     if (data.session) {
       await ensureProfileExists(data.session);
     }
@@ -109,16 +89,10 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (error) throw error;
 
-    // STRICT CHECK: Do NOT auto-create profile here.
-    // If the user hasn't "Signed Up" for this app (meaning created a profile via signup or email verify),
-    // they should not be allowed to just login with credentials from another app.
+    // REVERTED BEHAVIOR: Always ensure profile exists on login.
+    // This allows users from other apps in the same project to "migrate" purely by logging in.
     if (data.session) {
-      const hasProfile = await checkProfileExists(data.session);
-      if (!hasProfile) {
-        // Optional: Sign them out to kill the session we just created
-        await globalSupabase.auth.signOut(data.session.access_token);
-        return res.status(403).json({ error: "Account not registered for this application. Please Sign Up." });
-      }
+      await ensureProfileExists(data.session);
     }
 
     res.json(data);
@@ -136,8 +110,7 @@ app.get('/api/auth/me', async (req, res) => {
     const { data: { user }, error } = await globalSupabase.auth.getUser(token);
     if (error || !user) throw new Error("Invalid token");
 
-    // LENIENT: If they have a valid token (e.g. from Email Link), ensure profile exists.
-    // This bridges the "Signup -> Email -> Login" gap.
+    // Also check here just in case
     await ensureProfileExists({ user, access_token: token });
 
     res.json({ user });
