@@ -149,6 +149,22 @@ app.post('/api/auth/update', async (req, res) => {
   }
 });
 
+app.post('/api/auth/recover', async (req, res) => {
+  const { email, redirectTo } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  try {
+    const { error } = await globalSupabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectTo
+    });
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // --- MIDDLEWARE ---
 
 const authenticateToken = async (req, res, next) => {

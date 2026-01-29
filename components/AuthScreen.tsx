@@ -19,6 +19,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
@@ -54,6 +57,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoading) return;
+    setIsLoading(true);
+    setError(null);
+    setSuccessMsg(null);
+
+    try {
+      await authService.resetPassword(resetEmail);
+      setSuccessMsg("Password reset email sent! Check your inbox.");
+      setShowForgotModal(false);
+      setResetEmail('');
+    } catch (err: any) {
+      setError(err.message || "Failed to send reset email");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const toggleView = () => {
     setError(null);
     setSuccessMsg(null);
@@ -61,6 +83,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     if (view === 'login') setView('signup');
     else setView('login');
   };
+
+  if (showForgotModal) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-4">
+        <div className="w-full max-w-md bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-3xl p-8 shadow-2xl backdrop-blur-xl animate-in zoom-in-95">
+          <h2 className="text-2xl font-bold mb-4 text-center">Reset Password</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-center mb-6 text-sm">Enter your email and we'll send you a link to reset your password.</p>
+
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 ml-1">Email</label>
+              <input
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-banana-500 transition-all text-slate-900 dark:text-white"
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            {error && <div className="text-red-500 dark:text-red-400 text-xs bg-red-50 dark:bg-red-400/10 p-2 rounded-lg">{error}</div>}
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setShowForgotModal(false)} className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" disabled={isLoading}>Cancel</button>
+              <Button type="submit" className="flex-1" isLoading={isLoading} disabled={isLoading}>Send Email</Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 p-4 transition-colors duration-300">
@@ -126,6 +178,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {view === 'login' && (
+                <div className="flex justify-end mt-1">
+                  <button type="button" onClick={() => setShowForgotModal(true)} className="text-xs text-banana-500 hover:text-banana-400 font-medium">Forgot Password?</button>
+                </div>
+              )}
             </div>
 
             {error && <div className="text-red-500 dark:text-red-400 text-xs bg-red-50 dark:bg-red-400/10 p-2 rounded-lg border border-red-200 dark:border-red-400/20">{error}</div>}

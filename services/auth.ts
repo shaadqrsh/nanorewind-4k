@@ -142,6 +142,21 @@ export const authService = {
     return data;
   },
 
+  resetPassword: async (email: string) => {
+    const res = await fetch(`${BACKEND_URL}/api/auth/recover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        redirectTo: window.location.origin + '/#reset-password' // Optional: redirect to specific view
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send recovery email');
+    return data;
+  },
+
   // --- QUOTA METHODS ---
 
   checkQuota: async (): Promise<{ allowed: boolean; remaining: number; nextReset?: number }> => {
