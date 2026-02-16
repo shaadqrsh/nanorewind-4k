@@ -2,20 +2,18 @@ name: Keep Projects Awake
 
 on:
   schedule:
-    # Runs at the start of every hour
     - cron: '0 * * * *'
-  workflow_dispatch: # Allows manual triggers
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Hugging Face Space
-        run: curl -I "${{ secrets.HF_SPACE_URL }}"
-
+        run: curl -s -L -f "${{ secrets.HF_SPACE_URL }}" > /dev/null
       - name: Ping Supabase Database
         run: |
-          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?select=user_id&limit=1" \
+          curl -s -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?select=user_id&limit=1" \
           -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
           -H "Accept-Profile: nanorewind-4k"
