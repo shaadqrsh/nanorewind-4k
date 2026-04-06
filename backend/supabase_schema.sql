@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS "nanorewind-4k".profiles (
   last_refill TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Dummy
 -- Enable RLS
 ALTER TABLE "nanorewind-4k".profiles ENABLE ROW LEVEL SECURITY;
 
