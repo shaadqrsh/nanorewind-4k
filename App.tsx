@@ -237,9 +237,11 @@ export const App: React.FC = () => {
               ) : (
                 <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-900 h-40">
                   <img src={file.previewUrl} alt="Original" className="w-full h-full object-contain" />
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button onClick={handleReset} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-full font-medium text-xs">Remove</button>
-                  </div>
+                  {status !== 'loading' && (
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button onClick={handleReset} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-full font-medium text-xs">Remove</button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -264,7 +266,7 @@ export const App: React.FC = () => {
               <div className="flex-grow flex items-center justify-center bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden relative min-h-[400px] md:min-h-0">
                 {!file ? (
                   <div className="text-center p-8 text-slate-400 dark:text-slate-500"><Wand2 className="w-12 h-12 mx-auto mb-4 opacity-10" /><p className="text-sm">Ready for restoration.</p></div>
-                ) : (<RestoredView originalUrl={file.previewUrl} restoredUrl={restoredImage} status={status} onRemove={handleReset} />)}
+                ) : (<RestoredView originalUrl={file.previewUrl} originalName={file.file.name} restoredUrl={restoredImage} status={status} onRemove={handleReset} />)}
               </div>
             </div>
           </div>

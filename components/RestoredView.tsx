@@ -5,6 +5,7 @@ import { Button } from './Button';
 
 interface RestoredViewProps {
   originalUrl: string;
+  originalName: string;
   restoredUrl: string | null;
   status: RestorationStatus;
   onRemove: () => void;
@@ -12,7 +13,13 @@ interface RestoredViewProps {
 
 type ViewMode = 'original' | 'restored' | 'side-by-side' | 'slider';
 
-export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, restoredUrl, status, onRemove }) => {
+// Build the download filename from the original: "photo.jpg" -> "photo_restored.png".
+const buildDownloadName = (name: string): string => {
+  const base = name.replace(/\.[^./\\]+$/, '') || 'image';
+  return `${base}_restored.png`;
+};
+
+export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, originalName, restoredUrl, status, onRemove }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('slider');
   const [sliderPos, setSliderPos] = useState(50);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -161,9 +168,9 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, restore
             >
                 <Trash2 className="w-4 h-4" />
             </Button>
-            <Button 
-            href={restoredUrl} 
-            download="nanorewind-restored-4k.png"
+            <Button
+            href={restoredUrl}
+            download={buildDownloadName(originalName)}
             icon={Download}
             className="whitespace-nowrap py-2 px-5 text-sm"
             >
