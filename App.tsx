@@ -172,7 +172,7 @@ export const App: React.FC = () => {
           <History className="w-6 h-6 text-amber-500" strokeWidth={2} />
         </div>
         <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 animate-pulse">
-          Opening the atelier…
+          Loading…
         </p>
       </div>
     );
@@ -181,12 +181,12 @@ export const App: React.FC = () => {
   if (!isSignedIn) return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
 
   const buttonConfig = !quota.allowed
-    ? { text: 'Tray Empty', icon: XCircle, variant: 'danger' as const, disabled: true }
+    ? { text: 'No credits left', icon: XCircle, variant: 'danger' as const, disabled: true }
     : status === 'loading'
-      ? { text: 'Developing', icon: Wand2, variant: 'primary' as const, disabled: true }
+      ? { text: 'Restoring…', icon: Wand2, variant: 'primary' as const, disabled: true }
       : status === 'success'
-        ? { text: 'Plate Fixed', icon: Check, variant: 'primary' as const, disabled: true }
-        : { text: 'Develop Plate', icon: Wand2, variant: 'primary' as const, disabled: !file };
+        ? { text: 'Done', icon: Check, variant: 'primary' as const, disabled: true }
+        : { text: 'Restore photo', icon: Wand2, variant: 'primary' as const, disabled: !file };
 
   return (
     <div className="min-h-screen md:h-screen flex flex-col font-sans text-ink-200 md:overflow-hidden">
@@ -207,27 +207,26 @@ export const App: React.FC = () => {
             <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate shrink-0">
               <div className="absolute inset-0 hairline pointer-events-none" />
               <header className="flex items-center gap-3 px-4 py-3.5 border-b border-ink-800">
-                <span className="font-mono text-[11px] text-amber-500/80">01</span>
-                <h2 className="font-display text-base font-semibold text-ink-100">The original plate</h2>
+                <span className="font-mono text-[11px] text-amber-500/80">1</span>
+                <h2 className="font-display text-base font-semibold text-ink-100">Upload a photo</h2>
               </header>
               <div className="p-3">
                 {!file ? (
                   <div className="h-40"><Dropzone onFileSelect={handleFileSelect} /></div>
                 ) : (
                   <div className="relative group h-40 bg-ink-950 overflow-hidden border border-ink-700">
-                    <img src={file.previewUrl} alt="Original" className="w-full h-full object-contain" />
+                    <img src={file.previewUrl} alt="Your uploaded photo" className="w-full h-full object-contain" />
                     {status !== 'loading' && (
-                      <div className="absolute inset-0 bg-ink-950/70 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center backdrop-blur-[1px]">
-                        <button
-                          onClick={handleReset}
-                          className="font-mono text-[11px] uppercase tracking-widest text-rust-400 border border-rust-500/40 px-4 py-2 hover:bg-rust-500/10 transition-colors"
-                        >
-                          Discard
-                        </button>
-                      </div>
+                      <button
+                        onClick={handleReset}
+                        title="Remove photo"
+                        className="absolute top-2 right-2 grid place-items-center w-7 h-7 bg-ink-950/80 border border-ink-600 text-ink-300 hover:text-rust-400 hover:border-rust-500/50 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     )}
                     <span className="absolute bottom-1.5 left-1.5 font-mono text-[9px] text-ink-300 bg-ink-950/70 px-1.5 py-0.5">
-                      INPUT
+                      Original
                     </span>
                   </div>
                 )}
@@ -267,8 +266,8 @@ export const App: React.FC = () => {
               <div className="absolute inset-0 hairline pointer-events-none" />
               <header className="flex items-center justify-between px-4 py-3.5 border-b border-ink-800 shrink-0">
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-[11px] text-amber-500/80">03</span>
-                  <h2 className="font-display text-base font-semibold text-ink-100">Development bath</h2>
+                  <span className="font-mono text-[11px] text-amber-500/80">3</span>
+                  <h2 className="font-display text-base font-semibold text-ink-100">Result</h2>
                 </div>
                 <span className="font-mono text-[9px] uppercase tracking-widest text-ink-600 hidden sm:block">
                   before / after
@@ -283,9 +282,9 @@ export const App: React.FC = () => {
                       <span className="absolute -top-px -left-px w-2 h-2 border-t border-l border-amber-500/40" />
                       <span className="absolute -bottom-px -right-px w-2 h-2 border-b border-r border-amber-500/40" />
                     </div>
-                    <p className="font-display text-lg text-ink-300">Awaiting a plate</p>
+                    <p className="font-display text-lg text-ink-300">No photo yet</p>
                     <p className="font-mono text-[10px] uppercase tracking-widest text-ink-600 mt-1.5">
-                      load an image to begin
+                      upload a photo to start
                     </p>
                   </div>
                 ) : (
@@ -326,9 +325,9 @@ export const App: React.FC = () => {
               <div className="relative grid place-items-center w-14 h-14 mb-6 border border-ink-700 bg-ink-950">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-ink-500">0/3</span>
               </div>
-              <h2 className="font-display text-2xl font-semibold text-ink-100 mb-2">The tray is empty</h2>
+              <h2 className="font-display text-2xl font-semibold text-ink-100 mb-2">Out of credits</h2>
               <p className="text-ink-400 text-sm mb-6 leading-relaxed">
-                You've used today's three exposures. Fresh chemistry mixes in:
+                You've used all 3 free restorations for today. More credits in:
               </p>
               <div className="bg-ink-950 border border-ink-700 px-8 py-4 mb-8">
                 <Countdown targetDate={quota.nextReset} className="text-2xl text-amber-400" />

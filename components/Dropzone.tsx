@@ -74,10 +74,10 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
             className={`w-6 h-6 mb-2 transition-all duration-200 ${isDragOver ? 'text-amber-500 rotate-90' : 'text-ink-400 group-hover:text-amber-500/70'}`}
             strokeWidth={1.5}
           />
-          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-400">
-            Place a plate
+          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-300">
+            Click to upload
           </p>
-          <p className="mt-0.5 text-[10px] text-ink-600">drop or browse</p>
+          <p className="mt-0.5 text-[10px] text-ink-500">or drag a photo here · JPG, PNG, WebP</p>
         </div>
 
         <input

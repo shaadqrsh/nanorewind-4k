@@ -25,17 +25,17 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
   };
 
   const processes = [
-    { key: 'standard', code: 'ST', label: 'Standard Development', desc: 'True-to-source natural color balancing' },
-    { key: 'silver-gelatin', code: 'SG', label: 'Silver Gelatin (B&W)', desc: 'Rich high-contrast monochrome silver print' },
-    { key: 'albumen', code: 'AP', label: 'Albumen Print (Sepia)', desc: 'Warm sepia tones of 19th-century prints' },
-    { key: 'cyanotype', code: 'CP', label: 'Cyanotype Wash', desc: 'Prussian blue wash from historic iron process' },
-    { key: 'autochrome', code: 'AC', label: 'Lumière Autochrome', desc: 'Early color plate pastel tones & soft glow' },
-    { key: 'kodachrome', code: 'KC', label: 'Kodachrome 64', desc: 'Vibrant mid-century reds & rich contrast slide' },
+    { key: 'standard', code: 'ST', label: 'Natural color', desc: 'Realistic, true-to-life restoration' },
+    { key: 'silver-gelatin', code: 'BW', label: 'Black & white', desc: 'High-contrast monochrome' },
+    { key: 'albumen', code: 'SE', label: 'Sepia', desc: 'Warm brown vintage tone' },
+    { key: 'cyanotype', code: 'CY', label: 'Cyanotype blue', desc: 'Prussian-blue photographic wash' },
+    { key: 'autochrome', code: 'AU', label: 'Soft pastel', desc: 'Muted early-color look with a gentle glow' },
+    { key: 'kodachrome', code: 'KC', label: 'Vivid film', desc: 'Punchy reds and rich contrast' },
   ] as const;
 
   const modifiers = [
-    { key: 'chiaroscuro', code: 'CS', label: 'Chiaroscuro Mod', desc: 'Steepen tone curve to deepen dramatic shadows' },
-    { key: 'matte', code: 'MT', label: 'Matte Emulsion', desc: 'Soften highlights to simulate vintage paper texture' },
+    { key: 'chiaroscuro', code: 'CS', label: 'Deeper shadows', desc: 'More dramatic contrast' },
+    { key: 'matte', code: 'MT', label: 'Matte finish', desc: 'Softer highlights, vintage paper feel' },
   ] as const;
 
   return (
@@ -43,13 +43,13 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
       <div className="absolute inset-0 hairline pointer-events-none" />
       
       <header className="flex items-center gap-3 px-4 py-3.5 border-b border-ink-800">
-        <span className="font-mono text-[11px] text-amber-500/80">02</span>
-        <h2 className="font-display text-base font-semibold text-ink-100">Treatment ledger</h2>
+        <span className="font-mono text-[11px] text-amber-500/80">2</span>
+        <h2 className="font-display text-base font-semibold text-ink-100">Choose a style</h2>
       </header>
 
-      {/* Group A: Developer Tones */}
+      {/* Group A: Style (pick one) */}
       <div className="px-4 py-2 bg-ink-950/40 border-b border-ink-800/80">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Chemical Process (Select One)</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Style · pick one</span>
       </div>
       <div className="divide-y divide-ink-800/70">
         {processes.map((item) => {
@@ -59,8 +59,8 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
               key={item.key}
               type="button"
               onClick={() => setProcess(item.key)}
-              className={`group w-full flex items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150
-                ${active ? 'bg-amber-500/[0.04]' : 'hover:bg-ink-850/60'}`}
+              className={`group w-full flex items-center gap-3.5 px-4 py-2.5 text-left cursor-pointer border-l-2 transition-colors duration-150
+                ${active ? 'bg-amber-500/[0.06] border-amber-500' : 'border-transparent hover:bg-ink-850/60 hover:border-ink-600'}`}
             >
               <span className={`shrink-0 font-mono text-[9px] tracking-wider w-7 text-center py-0.5 border transition-colors
                 ${active ? 'border-amber-500/40 text-amber-400' : 'border-ink-700 text-ink-500'}`}>
@@ -85,9 +85,9 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
         })}
       </div>
 
-      {/* Group B: Emulsion Modifiers */}
+      {/* Group B: Extras (optional toggles) */}
       <div className="px-4 py-2 bg-ink-950/40 border-t border-b border-ink-800/80">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Atmospheric Modifiers (Optional)</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Extras · optional</span>
       </div>
       <div className="divide-y divide-ink-800/70">
         {modifiers.map((item) => {
@@ -97,8 +97,8 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
               key={item.key}
               type="button"
               onClick={() => toggleModifier(item.key)}
-              className={`group w-full flex items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150
-                ${active ? 'bg-amber-500/[0.04]' : 'hover:bg-ink-850/60'}`}
+              className={`group w-full flex items-center gap-3.5 px-4 py-2.5 text-left cursor-pointer border-l-2 transition-colors duration-150
+                ${active ? 'bg-amber-500/[0.06] border-amber-500' : 'border-transparent hover:bg-ink-850/60 hover:border-ink-600'}`}
             >
               <span className={`shrink-0 font-mono text-[9px] tracking-wider w-7 text-center py-0.5 border transition-colors
                 ${active ? 'border-amber-500/40 text-amber-400' : 'border-ink-700 text-ink-500'}`}>

@@ -120,18 +120,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           <div className="grid place-items-center w-10 h-10 bg-ink-900 border border-ink-700 shadow-safelight">
             <History className="w-5 h-5 text-amber-500" strokeWidth={2} />
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-400">Est. in the darkroom</span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-400">NanoRewind</span>
         </div>
 
         <div className="relative">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-amber-500/70 mb-5">Photographic restoration · 4K</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-amber-500/70 mb-5">AI photo restoration · 4K</p>
           <h2 className="font-display text-4xl xl:text-5xl font-light leading-[1.05] text-ink-100 text-balance">
             Bring faded<br />
             <span className="italic font-normal text-amber-400">photographs</span> back to life.
           </h2>
           <p className="mt-5 max-w-sm text-ink-400 leading-relaxed text-[15px]">
-            A conservation lab in your browser. Repair scratches, lift color casts, and develop old plates
-            into crisp 4K in seconds, powered by Gemini.
+            Upload an old photo and get a clean, sharp 4K version in seconds. Removes scratches,
+            fixes color, and brings back detail. Powered by Gemini.
           </p>
 
           {/* Live showcase — auto-sweeping before/after */}
@@ -143,9 +143,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         </div>
 
         <div className="relative flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest text-ink-600">
-          <span>3 free plates / day</span>
+          <span>3 free / day</span>
           <span className="w-1 h-1 rounded-full bg-ink-700" />
-          <span>secure server-side</span>
+          <span>secure &amp; private</span>
         </div>
       </aside>
 
@@ -161,10 +161,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           </div>
 
           <h1 className="font-display text-3xl font-semibold text-ink-100 mb-1.5">
-            {view === 'login' ? 'Enter the atelier' : 'Join the atelier'}
+            {view === 'login' ? 'Sign in' : 'Create an account'}
           </h1>
           <p className="text-ink-500 text-sm mb-8">
-            {view === 'login' ? 'Sign in to develop your plates.' : 'Create an account to begin restoring.'}
+            {view === 'login' ? 'Sign in to restore your photos.' : 'Sign up to start restoring photos.'}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">

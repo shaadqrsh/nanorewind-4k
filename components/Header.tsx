@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
                 NanoRewind
               </h1>
               <span className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink-500">
-                Restoration Atelier · 4K Plates
+                AI Photo Restoration · 4K
               </span>
             </div>
           </div>
@@ -51,14 +51,14 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
                 <div className="flex items-center gap-1.5 min-h-[14px]">
                   {quota?.nextReset ? (
                     <>
-                      <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Develops in</span>
+                      <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Resets in</span>
                       <Countdown targetDate={quota.nextReset} className="text-ink-400" />
                     </>
                   ) : (
-                    <span className="font-mono text-[9px] uppercase tracking-widest text-patina-400">Full Tray</span>
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-patina-400">Credits full</span>
                   )}
                 </div>
-                <div className="mt-1.5 flex items-center gap-2.5">
+                <div className="mt-1.5 flex items-center gap-2.5" title={`${remaining} of ${total} daily credits left`}>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: total }).map((_, i) => (
                       <span
@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
 
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex flex-col items-end leading-tight">
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Conservator</span>
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Signed in as</span>
                   <span className="text-sm text-ink-200 max-w-[150px] truncate">
                     {user.name || user.email.split('@')[0]}
                   </span>
@@ -116,17 +116,17 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
               <div className="grid place-items-center w-10 h-10 bg-rust-500/10 border border-rust-500/30">
                 <AlertTriangle className="w-5 h-5 text-rust-400" />
               </div>
-              <h3 className="font-display text-xl font-semibold text-ink-100">Leave the atelier?</h3>
+              <h3 className="font-display text-xl font-semibold text-ink-100">Sign out?</h3>
             </div>
             <p className="text-ink-400 text-sm mb-6 leading-relaxed">
-              Your session will be closed and this workstation cleared.
+              You'll be signed out and your current photo cleared.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
                 className="flex-1 py-2.5 font-mono text-[12px] uppercase tracking-widest bg-ink-800 border border-ink-700 text-ink-200 hover:bg-ink-700 transition-colors"
               >
-                Stay
+                Cancel
               </button>
               <button
                 onClick={() => { onLogout(); setShowLogoutConfirm(false); }}

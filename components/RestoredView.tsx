@@ -69,9 +69,9 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
           <span className="absolute top-1 left-1 w-2.5 h-2.5 border-t border-l border-amber-500/60" />
           <span className="absolute bottom-1 right-1 w-2.5 h-2.5 border-b border-r border-amber-500/60" />
         </div>
-        <h3 className="font-display text-xl font-semibold text-ink-100 mb-2">Developing the plate…</h3>
+        <h3 className="font-display text-xl font-semibold text-ink-100 mb-2">Restoring your photo…</h3>
         <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 text-center max-w-xs leading-relaxed">
-          Sony A1 simulation · geometry correction · 4K enhancement
+          This usually takes a few seconds
         </p>
         <div className="mt-5 flex items-center gap-1.5">
           {[0, 1, 2].map(i => (
@@ -89,25 +89,25 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
         <div className="relative max-w-full">
           <img src={originalUrl} alt="Original Preview" className="max-w-full max-h-[400px] object-contain border border-ink-700 shadow-plate" />
           <span className="absolute top-2 left-2 font-mono text-[9px] uppercase tracking-widest text-ink-300 bg-ink-950/70 px-1.5 py-0.5">
-            Undeveloped
+            Original
           </span>
         </div>
         <div className="mt-5 flex flex-col items-center gap-3">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500">Ready · develop the plate at left</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500">Ready · press “Restore photo” to start</p>
           <button onClick={() => setShowDeleteConfirm(true)}
             className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ink-500 hover:text-rust-400 transition-colors">
-            <Trash2 className="w-3 h-3" /> Discard
+            <Trash2 className="w-3 h-3" /> Remove photo
           </button>
         </div>
 
         {showDeleteConfirm && (
           <div className="absolute inset-0 z-50 grid place-items-center bg-ink-950/80 backdrop-blur-sm p-4">
             <div className="w-full max-w-xs bg-ink-900 border border-ink-700 shadow-plate p-6">
-              <h3 className="font-display text-lg font-semibold text-ink-100 mb-2">Discard plate?</h3>
+              <h3 className="font-display text-lg font-semibold text-ink-100 mb-2">Remove photo?</h3>
               <p className="text-ink-400 text-sm mb-5">This clears the current image.</p>
               <div className="flex gap-2">
                 <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 !py-2 !px-3">Cancel</Button>
-                <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-3">Discard</Button>
+                <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-3">Remove</Button>
               </div>
             </div>
           </div>
@@ -121,7 +121,7 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
     { mode: 'original', label: 'Original', Icon: ImageIcon },
     { mode: 'restored', label: 'Restored', Icon: Sparkles },
     { mode: 'slider', label: 'Compare', Icon: MoveHorizontal },
-    { mode: 'side-by-side', label: 'Diptych', Icon: Columns },
+    { mode: 'side-by-side', label: 'Split', Icon: Columns },
   ];
 
   return (
@@ -167,12 +167,12 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
               <div className="grid place-items-center w-10 h-10 bg-rust-500/10 border border-rust-500/30">
                 <AlertTriangle className="w-5 h-5 text-rust-400" />
               </div>
-              <h3 className="font-display text-lg font-semibold text-ink-100">Discard plate?</h3>
+              <h3 className="font-display text-lg font-semibold text-ink-100">Remove photo?</h3>
             </div>
             <p className="text-ink-400 text-sm mb-5">The restored result will be lost.</p>
             <div className="flex gap-2">
               <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 !py-2 !px-4">Cancel</Button>
-              <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-4">Discard</Button>
+              <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-4">Remove</Button>
             </div>
           </div>
         </div>
@@ -234,6 +234,11 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
                 <MoveHorizontal className="w-4 h-4 text-amber-500" />
               </div>
             </div>
+
+            {/* Drag hint */}
+            <span className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-ink-200 bg-ink-950/70 px-2.5 py-1 pointer-events-none">
+              <MoveHorizontal className="w-3 h-3 text-amber-500" /> Drag to compare
+            </span>
 
             <span className="absolute bottom-3 left-3 font-mono text-[9px] uppercase tracking-widest text-ink-200 bg-ink-950/70 px-2 py-1 pointer-events-none">Original</span>
             <span className="absolute bottom-3 right-3 font-mono text-[9px] uppercase tracking-widest text-ink-950 bg-amber-500 px-2 py-1 pointer-events-none">Restored</span>
