@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { globalSupabase } from '../_lib/supabase';
+import { getGlobalSupabase } from '../_lib/supabase';
 import { ensureProfileExists } from '../_lib/profile';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { email, password, name, redirectTo } = req.body || {};
   try {
-    const { data, error } = await globalSupabase.auth.signUp({
+    const { data, error } = await getGlobalSupabase().auth.signUp({
       email,
       password,
       options: {

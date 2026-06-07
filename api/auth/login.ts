@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { globalSupabase } from '../_lib/supabase';
+import { getGlobalSupabase } from '../_lib/supabase';
 import { ensureProfileExists } from '../_lib/profile';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -7,9 +7,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { email, password } = req.body || {};
   try {
-    const { data, error } = await globalSupabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await getGlobalSupabase().auth.signInWithPassword({ email, password });
 
-    if (error) throw error;
+    if (error) return res.status(401).json({ error: error.message });
 
     // Always ensure profile exists on login, so users from sibling apps in the
     // same project "migrate" purely by logging in.
@@ -19,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     res.json(data);
   } catch (err) {
-    res.status(401).json({ error: (err as Error).message });
+    console.error('Login error:', err);
+    res.status(500).json({ error: (err as Error).message || 'Login failed' });
   }
 }

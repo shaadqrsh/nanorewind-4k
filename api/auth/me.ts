@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { globalSupabase } from '../_lib/supabase';
+import { getGlobalSupabase } from '../_lib/supabase';
 import { ensureProfileExists } from '../_lib/profile';
 import { getBearerToken } from '../_lib/auth';
 
@@ -10,7 +10,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!token) return res.status(401).json({ error: 'Missing token' });
 
   try {
-    const { data, error } = await globalSupabase.auth.getUser(token);
+    const { data, error } = await getGlobalSupabase().auth.getUser(token);
     if (error || !data.user) throw new Error('Invalid token');
 
     // Also ensure here, just in case.

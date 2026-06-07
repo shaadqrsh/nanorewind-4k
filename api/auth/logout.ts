@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { globalSupabase } from '../_lib/supabase';
+import { getGlobalSupabase } from '../_lib/supabase';
 import { getBearerToken } from '../_lib/auth';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const token = getBearerToken(req);
   if (token) {
-    await globalSupabase.auth.signOut().catch(() => {});
+    await getGlobalSupabase().auth.signOut().catch(() => {});
   }
   res.json({ success: true });
 }
