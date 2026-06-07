@@ -1,12 +1,4 @@
-const getEnv = (key: string, fallback: string) => {
-  // @ts-ignore
-  if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
-  // @ts-ignore
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) return import.meta.env[key];
-  return fallback;
-};
-
-const BACKEND_URL = getEnv('VITE_BACKEND_URL', 'http://localhost:7860');
+// API runs as same-origin Vercel serverless functions under /api.
 
 // Token Management
 const TOKEN_KEY = 'nanorewind_auth_token';
@@ -39,7 +31,7 @@ export const authService = {
   },
 
   signUp: async (params: { email: string; password: string; name?: string }) => {
-    const res = await fetch(`${BACKEND_URL}/api/auth/signup`, {
+    const res = await fetch(`/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -58,7 +50,7 @@ export const authService = {
   },
 
   signIn: async (params: { email: string; password: string }) => {
-    const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+    const res = await fetch(`/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params)
@@ -76,7 +68,7 @@ export const authService = {
   signOut: async () => {
     const token = getUserToken();
     if (token) {
-      await fetch(`${BACKEND_URL}/api/auth/logout`, {
+      await fetch(`/api/auth/logout`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       }).catch(() => { });
@@ -89,7 +81,7 @@ export const authService = {
     if (!token) return null;
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
+      const res = await fetch(`/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -110,7 +102,7 @@ export const authService = {
     const token = getUserToken();
     if (!token) throw new Error("Not authenticated");
 
-    const res = await fetch(`${BACKEND_URL}/api/auth/update`, {
+    const res = await fetch(`/api/auth/update`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -128,7 +120,7 @@ export const authService = {
     const token = getUserToken();
     if (!token) throw new Error("Not authenticated");
 
-    const res = await fetch(`${BACKEND_URL}/api/auth/update`, {
+    const res = await fetch(`/api/auth/update`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -143,7 +135,7 @@ export const authService = {
   },
 
   resetPassword: async (email: string) => {
-    const res = await fetch(`${BACKEND_URL}/api/auth/recover`, {
+    const res = await fetch(`/api/auth/recover`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -164,7 +156,7 @@ export const authService = {
       const token = getUserToken();
       if (!token) return { allowed: false, remaining: 0 };
 
-      const res = await fetch(`${BACKEND_URL}/api/quota`, {
+      const res = await fetch(`/api/quota`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 

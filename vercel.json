@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/restore.ts": {
+      "maxDuration": 60
+    }
+  }
+}

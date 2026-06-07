@@ -6,47 +6,42 @@ A free, AI-powered image restoration tool using Google Gemini.
 - Restore old, scratched, or blurry photos.
 - Daily free credit system (3 restorations/day) tracked via Supabase.
 - Full 4K restoration capabilities.
-- **Secure Backend**: All authentication and database logic is handled by the backend proxy.
+- **Secure Backend**: All authentication and database logic is handled by serverless API routes.
 
 ## Architecture
 -   **Frontend**: React (Vite) on **Vercel**.
--   **Backend**: Node.js (Express) on **Hugging Face Spaces**.
+-   **Backend**: Vercel **Serverless Functions** (Node.js/TypeScript) under `/api`, same-origin with the frontend.
 -   **Database**: Supabase (Postgres) with strict RLS and RPC functions.
 
 ## Local Development
 
-1.  **Backend**:
-    ```bash
-    cd backend
-    npm install
-    npm start
-    ```
-    *   Create `backend/.env` with `API_KEY` (Gemini), `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+```bash
+npm install
+npx vercel dev
+```
 
-2.  **Frontend**:
-    ```bash
-    npm install
-    npm run dev
-    ```
-    *   Create `.env` with `VITE_BACKEND_URL=http://localhost:7860`.
+`vercel dev` serves both the Vite frontend and the `/api/*` serverless functions on a single localhost port. Create a `.env` (or use `vercel env pull`) with:
+
+-   `GEMINI_API_KEY` — your Google Gemini API key.
+-   `SUPABASE_URL` — your Supabase project URL.
+-   `SUPABASE_ANON_KEY` — your Supabase anon key.
+
+> Plain `npm run dev` runs the frontend only; the `/api` routes require `vercel dev` (or a Vercel deployment).
 
 ## Deployment
 
 ### 1. Database (Supabase)
 *   Create a project at [supabase.com](https://supabase.com).
-*   Run the SQL from `supabase_schema.sql` in the SQL Editor.
+*   Run the SQL from `backend/supabase_schema.sql` in the SQL Editor.
 
-### 2. Backend (Hugging Face Spaces)
-*   Create a new Space (Node.js template).
-*   Upload the contents of the `backend/` folder (ensure `package.json` is at the root of the Space or configure the Space to look in `backend/` if syncing repo). *Typically easier to just copy the backend code to the Space root or use a Dockerfile.*
-*   **Settings > Variables / Secrets**:
-    *   `API_KEY`: Your Google Gemini API Key.
-    *   `VITE_SUPABASE_URL`: Your Supabase Project URL.
-    *   `VITE_SUPABASE_ANON_KEY`: Your Supabase Anon Key.
-    *   `PORT`: `7860` (Default for HF Spaces).
+### 2. App + API (Vercel)
+*   Import the repository to Vercel (it auto-detects Vite; the `/api` folder deploys as serverless functions).
+*   **Settings > Environment Variables** (Production + Preview):
+    *   `GEMINI_API_KEY` — your Google Gemini API key.
+    *   `SUPABASE_URL` — your Supabase project URL.
+    *   `SUPABASE_ANON_KEY` — your Supabase anon key.
 
-### 3. Frontend (Vercel)
-*   Import the repository to Vercel.
-*   **Settings > Environment Variables**:
-    *   `VITE_BACKEND_URL`: The direct URL of your Hugging Face Space (e.g., `https://username-spacename.hf.space`).
-        *   *Note: Ensure the HF Space is "Public" or you handle auth, usually Public is required for the frontend to hit the API directly.*
+> These are server-side variables for the functions — do **not** prefix them with `VITE_` (that would expose them to the browser bundle).
+
+### Keep-alive
+A GitHub Actions workflow (`.github/workflows/keep_alive.yml`) pings Supabase hourly to keep the free-tier database from pausing. It requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository Actions secrets.

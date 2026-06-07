@@ -1,12 +1,4 @@
-const getEnv = (key: string, fallback: string) => {
-  // @ts-ignore
-  if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
-  // @ts-ignore
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) return import.meta.env[key];
-  return fallback;
-};
-
-const BACKEND_URL = getEnv('VITE_BACKEND_URL', 'http://localhost:7860');
+// API runs as same-origin Vercel serverless functions under /api.
 
 export const restoreImage = async (
   base64Image: string, 
@@ -15,7 +7,7 @@ export const restoreImage = async (
   token: string
 ): Promise<string> => {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/restore`, {
+    const response = await fetch(`/api/restore`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

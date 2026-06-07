@@ -1,4 +1,4 @@
-name: Keep Projects Awake
+name: Keep Supabase Awake
 
 on:
   schedule:
@@ -9,8 +9,6 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Hugging Face Space
-        run: curl -s -L "${{ secrets.HF_SPACE_URL }}/" > /dev/null
       - name: Ping Supabase Database
         run: |
           curl -s -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?select=user_id&limit=1" \
