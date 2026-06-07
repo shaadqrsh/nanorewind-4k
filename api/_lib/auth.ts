@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { makeScopedClient } from './supabase';
+import { makeScopedClient } from './supabase.js';
 
 type ScopedClient = ReturnType<typeof makeScopedClient>;
 

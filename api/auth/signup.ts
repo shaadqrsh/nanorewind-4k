@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getGlobalSupabase } from '../_lib/supabase';
-import { ensureProfileExists } from '../_lib/profile';
+import { getGlobalSupabase } from '../_lib/supabase.js';
+import { ensureProfileExists } from '../_lib/profile.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

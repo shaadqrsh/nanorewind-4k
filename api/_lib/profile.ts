@@ -1,4 +1,4 @@
-import { makeScopedClient } from './supabase';
+import { makeScopedClient } from './supabase.js';
 
 export const MAX_CREDITS = 3;
 export const REFILL_MS = 24 * 60 * 60 * 1000;
