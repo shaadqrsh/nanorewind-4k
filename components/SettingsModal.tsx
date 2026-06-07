@@ -40,12 +40,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const inputCls =
-    "w-full bg-ink-950 border border-ink-700 px-4 py-2.5 text-sm text-ink-100 " +
+    "w-full min-w-0 bg-ink-950 border border-ink-700 px-4 py-2.5 text-sm text-ink-100 " +
     "placeholder:text-ink-600 outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 transition-colors";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/85 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg bg-ink-900 border border-ink-700 shadow-plate flex flex-col max-h-[90vh] animate-rise">
+      <div className="relative w-full max-w-lg min-w-0 bg-ink-900 border border-ink-700 shadow-plate flex flex-col max-h-[90vh] animate-rise">
         <div className="absolute inset-0 hairline pointer-events-none" />
 
         {/* Header */}
@@ -57,7 +57,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto">
+        <div className="p-6 min-w-0 overflow-y-auto">
           {message && (
             <div className={`mb-6 px-3 py-2.5 text-xs font-mono border flex items-center gap-2 ${
               message.type === 'success'
