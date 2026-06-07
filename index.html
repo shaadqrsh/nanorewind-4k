@@ -3,8 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NanoRewind 4K</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F4C430' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12' /%3E%3Cpath d='M3 3v9h9' /%3E%3C/svg%3E" />
+    <title>NanoRewind · Photographic Restoration Atelier</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E0A458' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12' /%3E%3Cpath d='M3 3v9h9' /%3E%3C/svg%3E" />
+
+    <!-- Typeface: Fraunces (optical serif display) + Geist / Geist Mono (UI) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Geist+Mono:wght@300..600&family=Geist:wght@300..600&display=swap" rel="stylesheet" />
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -12,32 +18,133 @@
         theme: {
           extend: {
             colors: {
-              banana: {
-                400: '#FFE135',
-                500: '#F4C430',
-                600: '#D4AF37',
-              }
+              // Darkroom palette - warm ink, not cold slate
+              ink: {
+                950: '#0c0a09',  // near-black, warm
+                900: '#161311',
+                850: '#1c1815',
+                800: '#241f1b',
+                700: '#332b25',
+                600: '#473c33',
+                500: '#6b5d50',
+                400: '#998a7b',
+                300: '#c4b8a9',
+                200: '#e3dcd1',
+                100: '#f2eee7',
+              },
+              // Safelight amber - the darkroom glow
+              amber: {
+                300: '#f0c489',
+                400: '#e6b06a',
+                500: '#e0a458',   // primary accent
+                600: '#c98a3e',
+                700: '#a66d2c',
+              },
+              // Conservation rust (alerts / removal)
+              rust: {
+                400: '#d98a6a',
+                500: '#c46a48',
+                600: '#a8512f',
+              },
+              patina: {
+                400: '#7fa896',
+                500: '#5f8a76',
+              },
+            },
+            fontFamily: {
+              display: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],
+              sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+              mono: ['"Geist Mono"', 'ui-monospace', 'monospace'],
+            },
+            letterSpacing: {
+              widest: '0.28em',
+            },
+            boxShadow: {
+              'plate': '0 2px 4px rgba(0,0,0,0.5), 0 12px 40px -8px rgba(0,0,0,0.65)',
+              'safelight': '0 0 60px -10px rgba(224,164,88,0.35)',
             },
             animation: {
-              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            }
+              'develop': 'develop 1.6s ease-out forwards',
+              'grain': 'grain 0.6s steps(4) infinite',
+              'rise': 'rise 0.7s cubic-bezier(0.2,0.7,0.2,1) both',
+              'safelight-pulse': 'safelightPulse 4s ease-in-out infinite',
+              'scan': 'scan 2.4s ease-in-out infinite',
+            },
+            keyframes: {
+              develop: {
+                '0%':   { filter: 'brightness(0.2) contrast(0.6) sepia(0.8)', opacity: '0' },
+                '40%':  { opacity: '1' },
+                '100%': { filter: 'brightness(1) contrast(1) sepia(0)', opacity: '1' },
+              },
+              rise: {
+                '0%':   { transform: 'translateY(14px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              safelightPulse: {
+                '0%, 100%': { opacity: '0.5' },
+                '50%':       { opacity: '0.85' },
+              },
+              scan: {
+                '0%, 100%': { transform: 'translateY(-100%)' },
+                '50%':       { transform: 'translateY(100%)' },
+              },
+            },
           }
         }
       }
     </script>
     <style>
+      :root { color-scheme: dark; }
+
+      body {
+        background-color: #0c0a09;
+        background-image:
+          radial-gradient(120% 80% at 50% -10%, rgba(224,164,88,0.10), transparent 55%),
+          radial-gradient(80% 60% at 100% 110%, rgba(95,138,118,0.06), transparent 60%);
+        background-attachment: fixed;
+      }
+
+      /* Film-grain overlay - the atelier atmosphere */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0.5;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+
+      /* Fine vignette */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        box-shadow: inset 0 0 200px 40px rgba(0,0,0,0.55);
+      }
+
+      #root { position: relative; z-index: 2; }
+
       @media (min-width: 768px) {
         body { overflow: hidden; }
       }
-      ::-webkit-scrollbar { width: 6px; }
-      ::-webkit-scrollbar-track { background: #1e293b; }
-      ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-      ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-      
-      /* Light mode scrollbar overrides */
-      html:not(.dark) ::-webkit-scrollbar-track { background: #e2e8f0; }
-      html:not(.dark) ::-webkit-scrollbar-thumb { background: #94a3b8; }
-      html:not(.dark) ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+      /* Optical refinements */
+      .font-display { font-optical-sizing: auto; }
+      .text-balance { text-wrap: balance; }
+
+      ::selection { background: rgba(224,164,88,0.3); color: #f2eee7; }
+
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #332b25; border-radius: 0; border: 2px solid #0c0a09; }
+      ::-webkit-scrollbar-thumb:hover { background: #473c33; }
+
+      /* Hairline registration borders */
+      .hairline { box-shadow: inset 0 0 0 1px rgba(196,184,169,0.08); }
     </style>
     <script type="importmap">
 {
@@ -54,7 +161,7 @@
 }
 </script>
   </head>
-  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
+  <body class="text-ink-200 font-sans antialiased">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

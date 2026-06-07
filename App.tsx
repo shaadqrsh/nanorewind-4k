@@ -8,7 +8,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { restoreImage } from './services/gemini';
 import { authService } from './services/auth';
 import { ImageFile, RestorationStatus, User } from './types';
-import { AlertCircle, Wand2, Check, Zap, X, XCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Wand2, Check, X, XCircle, Loader2, History } from 'lucide-react';
 import { Button } from './components/Button';
 import { Countdown } from './components/Countdown';
 
@@ -19,16 +19,13 @@ export const App: React.FC = () => {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
 
-  const [isDark, setIsDark] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
 
   const [file, setFile] = useState<ImageFile | null>(null);
   const [promptOptions, setPromptOptions] = useState<PromptOptions>({
-    scratches: true,
-    color: true,
-    denoise: true,
-    faces: true,
-    sharpen: false
+    process: 'standard',
+    chiaroscuro: false,
+    matte: false
   });
 
   const [restoredImage, setRestoredImage] = useState<string | null>(null);
@@ -36,18 +33,6 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [quota, setQuota] = useState({ allowed: false, remaining: 0, nextReset: 0 });
   const [showZeroCreditsModal, setShowZeroCreditsModal] = useState(false);
-
-  const toggleTheme = useCallback(() => {
-    setIsDark(prev => {
-      const next = !prev;
-      if (next) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      return next;
-    });
-  }, []);
 
   const refreshQuota = useCallback(async () => {
     const q = await authService.checkQuota();
@@ -63,10 +48,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        // Check for Email Redirect (Hash) first
         authService.handleEmailRedirect();
-
-        // Authenticate via Backend Me Endpoint
         const session = await authService.getSession();
 
         if (session && session.user) {
@@ -76,8 +58,6 @@ export const App: React.FC = () => {
             id: session.user.id
           });
           setIsSignedIn(true);
-
-          // Wait for quota to load
           await refreshQuota().then(q => {
             if (q && !q.allowed) setShowZeroCreditsModal(true);
           });
@@ -88,17 +68,13 @@ export const App: React.FC = () => {
 
         setIsAuthReady(true);
         setIsDataLoaded(true);
-
       } catch (err) {
-        // Silent fail on init, just show login screen if needed, or error if config missing
         console.error("Auth init failed", err);
         setIsAuthReady(true);
         setIsDataLoaded(true);
       }
     };
     init();
-
-    // Set initial theme
     document.documentElement.classList.add('dark');
   }, [refreshQuota]);
 
@@ -135,16 +111,7 @@ export const App: React.FC = () => {
       const base64Data = file.previewUrl.split(',')[1];
       const mimeType = file.file.type;
 
-      const directives = [];
-      if (promptOptions.scratches) directives.push("Erase cracks/tears.");
-      if (promptOptions.color) directives.push("Fix color balance.");
-      if (promptOptions.denoise) directives.push("Remove noise.");
-      if (promptOptions.faces) directives.push("Restore facial details.");
-      if (promptOptions.sharpen) directives.push("Correct blur.");
-
-      const finalPrompt = `${directives.join(" ")} Enhance portrait. Preserve identity. Sony A1 look. Neutral color. Same aspect ratio.`;
-
-      const restoredBase64 = await restoreImage(base64Data, mimeType, finalPrompt, token);
+      const restoredBase64 = await restoreImage(base64Data, mimeType, promptOptions, token);
       await refreshQuota();
       setRestoredImage(restoredBase64);
       setStatus('success');
@@ -171,7 +138,6 @@ export const App: React.FC = () => {
   };
 
   const handleAuthSuccess = async () => {
-    // Called after AuthScreen success (login/signup)
     setIsDataLoaded(false);
     const session = await authService.getSession();
     if (session && session.user) {
@@ -188,10 +154,10 @@ export const App: React.FC = () => {
 
   if (configError) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-300 p-4">
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-xl flex items-center gap-3 max-w-md">
-          <AlertCircle className="text-red-500 w-6 h-6 shrink-0" />
-          <p>{configError}</p>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-ink-900 border border-ink-700 p-6 flex items-center gap-3 max-w-md shadow-plate">
+          <AlertCircle className="text-rust-400 w-6 h-6 shrink-0" />
+          <p className="text-ink-300 text-sm">{configError}</p>
         </div>
       </div>
     );
@@ -199,9 +165,15 @@ export const App: React.FC = () => {
 
   if (!isAuthReady || (isSignedIn && !isDataLoaded)) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4 transition-colors duration-300">
-        <Loader2 className="w-10 h-10 text-banana-500 animate-spin" />
-        <p className="text-slate-500 dark:text-slate-400 text-sm font-medium animate-pulse">Loading profile...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-5">
+        <div className="relative grid place-items-center w-16 h-16">
+          <div className="absolute inset-0 border border-ink-700" />
+          <div className="absolute inset-0 border-t border-amber-500 animate-spin" />
+          <History className="w-6 h-6 text-amber-500" strokeWidth={2} />
+        </div>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 animate-pulse">
+          Opening the atelier…
+        </p>
       </div>
     );
   }
@@ -209,66 +181,124 @@ export const App: React.FC = () => {
   if (!isSignedIn) return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
 
   const buttonConfig = !quota.allowed
-    ? { text: 'Limit Reached', icon: XCircle, variant: 'danger' as const, disabled: true }
+    ? { text: 'Tray Empty', icon: XCircle, variant: 'danger' as const, disabled: true }
     : status === 'loading'
-      ? { text: 'Restoring...', icon: Wand2, variant: 'primary' as const, disabled: true }
+      ? { text: 'Developing', icon: Wand2, variant: 'primary' as const, disabled: true }
       : status === 'success'
-        ? { text: 'Restored', icon: Check, variant: 'primary' as const, disabled: true }
-        : { text: 'Restore Image', icon: Wand2, variant: 'primary' as const, disabled: !file };
+        ? { text: 'Plate Fixed', icon: Check, variant: 'primary' as const, disabled: true }
+        : { text: 'Develop Plate', icon: Wand2, variant: 'primary' as const, disabled: !file };
 
   return (
-    <div className="min-h-screen md:h-screen flex flex-col font-sans text-slate-900 dark:text-slate-100 md:overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+    <div className="min-h-screen md:h-screen flex flex-col font-sans text-ink-200 md:overflow-hidden">
       <Header
         user={user}
         quota={quota}
         onLogout={handleLogout}
         onOpenSettings={() => setShowSettings(true)}
       />
-      <main className="flex-grow md:overflow-hidden container mx-auto px-4 py-4 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
-          <div className="lg:col-span-4 flex flex-col h-full gap-4 md:overflow-hidden">
-            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xl backdrop-blur-sm shrink-0">
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <span className="bg-banana-500 text-slate-900 rounded-lg w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
-                Upload Image
-              </h2>
-              {!file ? (
-                <div className="h-40"><Dropzone onFileSelect={handleFileSelect} /></div>
-              ) : (
-                <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-900 h-40">
-                  <img src={file.previewUrl} alt="Original" className="w-full h-full object-contain" />
-                  {status !== 'loading' && (
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button onClick={handleReset} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-full font-medium text-xs">Remove</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="flex-grow md:overflow-y-auto pr-1">
+
+      <main className="flex-grow md:overflow-hidden container mx-auto max-w-7xl px-5 py-5">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full">
+
+          {/* Left rail - controls */}
+          <div className="lg:col-span-4 flex flex-col h-full gap-5 md:overflow-hidden animate-rise">
+
+            {/* 01 - Plate */}
+            <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate shrink-0">
+              <div className="absolute inset-0 hairline pointer-events-none" />
+              <header className="flex items-center gap-3 px-4 py-3.5 border-b border-ink-800">
+                <span className="font-mono text-[11px] text-amber-500/80">01</span>
+                <h2 className="font-display text-base font-semibold text-ink-100">The original plate</h2>
+              </header>
+              <div className="p-3">
+                {!file ? (
+                  <div className="h-40"><Dropzone onFileSelect={handleFileSelect} /></div>
+                ) : (
+                  <div className="relative group h-40 bg-ink-950 overflow-hidden border border-ink-700">
+                    <img src={file.previewUrl} alt="Original" className="w-full h-full object-contain" />
+                    {status !== 'loading' && (
+                      <div className="absolute inset-0 bg-ink-950/70 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center backdrop-blur-[1px]">
+                        <button
+                          onClick={handleReset}
+                          className="font-mono text-[11px] uppercase tracking-widest text-rust-400 border border-rust-500/40 px-4 py-2 hover:bg-rust-500/10 transition-colors"
+                        >
+                          Discard
+                        </button>
+                      </div>
+                    )}
+                    <span className="absolute bottom-1.5 left-1.5 font-mono text-[9px] text-ink-300 bg-ink-950/70 px-1.5 py-0.5">
+                      INPUT
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* 02 - Treatment ledger */}
+            <div className="flex-grow md:overflow-y-auto pr-1 -mr-1">
               <PromptSelector options={promptOptions} onChange={setPromptOptions} />
             </div>
-            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xl backdrop-blur-sm shrink-0 mt-auto">
-              <Button onClick={handleRestore} disabled={buttonConfig.disabled} isLoading={status === 'loading'} icon={buttonConfig.icon} variant={buttonConfig.variant} className="w-full py-3">{buttonConfig.text}</Button>
+
+            {/* Develop action */}
+            <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate shrink-0 mt-auto p-4">
+              <div className="absolute inset-0 hairline pointer-events-none" />
+              <Button
+                onClick={handleRestore}
+                disabled={buttonConfig.disabled}
+                isLoading={status === 'loading'}
+                icon={buttonConfig.icon}
+                variant={buttonConfig.variant}
+                className="w-full"
+              >
+                {buttonConfig.text}
+              </Button>
               {error && (
-                <div className="mt-3 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-200 p-2 rounded-lg flex items-center gap-2 text-xs">
-                  <AlertCircle className="w-4 h-4 shrink-0" /><p className="truncate">{error}</p>
+                <div className="mt-3 flex items-center gap-2 bg-rust-500/10 border border-rust-500/30 text-rust-400 px-3 py-2 text-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <p className="truncate">{error}</p>
                 </div>
               )}
-            </div>
+            </section>
           </div>
-          <div className="lg:col-span-8 h-full md:overflow-hidden">
-            <div className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xl backdrop-blur-sm h-full flex flex-col md:overflow-hidden">
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 shrink-0">
-                <span className="bg-banana-500 text-slate-900 rounded-lg w-6 h-6 flex items-center justify-center text-xs font-bold">3</span>
-                Result
-              </h2>
-              <div className="flex-grow flex items-center justify-center bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden relative min-h-[400px] md:min-h-0">
+
+          {/* Right - the development bath */}
+          <div className="lg:col-span-8 h-full md:overflow-hidden animate-rise" style={{ animationDelay: '90ms' }}>
+            <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate h-full flex flex-col md:overflow-hidden">
+              <div className="absolute inset-0 hairline pointer-events-none" />
+              <header className="flex items-center justify-between px-4 py-3.5 border-b border-ink-800 shrink-0">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[11px] text-amber-500/80">03</span>
+                  <h2 className="font-display text-base font-semibold text-ink-100">Development bath</h2>
+                </div>
+                <span className="font-mono text-[9px] uppercase tracking-widest text-ink-600 hidden sm:block">
+                  before / after
+                </span>
+              </header>
+
+              <div className="flex-grow flex items-center justify-center bg-ink-950/60 overflow-hidden relative min-h-[400px] md:min-h-0">
                 {!file ? (
-                  <div className="text-center p-8 text-slate-400 dark:text-slate-500"><Wand2 className="w-12 h-12 mx-auto mb-4 opacity-10" /><p className="text-sm">Ready for restoration.</p></div>
-                ) : (<RestoredView originalUrl={file.previewUrl} originalName={file.file.name} restoredUrl={restoredImage} status={status} onRemove={handleReset} />)}
+                  <div className="text-center p-8">
+                    <div className="relative inline-grid place-items-center w-14 h-14 mb-5 border border-ink-700">
+                      <Wand2 className="w-6 h-6 text-ink-600" strokeWidth={1.5} />
+                      <span className="absolute -top-px -left-px w-2 h-2 border-t border-l border-amber-500/40" />
+                      <span className="absolute -bottom-px -right-px w-2 h-2 border-b border-r border-amber-500/40" />
+                    </div>
+                    <p className="font-display text-lg text-ink-300">Awaiting a plate</p>
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-ink-600 mt-1.5">
+                      load an image to begin
+                    </p>
+                  </div>
+                ) : (
+                  <RestoredView
+                    originalUrl={file.previewUrl}
+                    originalName={file.file.name}
+                    restoredUrl={restoredImage}
+                    status={status}
+                    onRemove={handleReset}
+                  />
+                )}
               </div>
-            </div>
+            </section>
           </div>
         </div>
       </main>
@@ -278,24 +308,34 @@ export const App: React.FC = () => {
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
           user={user}
-          isDark={isDark}
-          onToggleTheme={toggleTheme}
           onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)}
         />
       )}
 
       {showZeroCreditsModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl relative">
-            <button onClick={() => setShowZeroCreditsModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/85 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md bg-ink-900 border border-ink-700 shadow-plate p-8 animate-rise">
+            <div className="absolute inset-0 hairline pointer-events-none" />
+            <button
+              onClick={() => setShowZeroCreditsModal(false)}
+              className="absolute top-4 right-4 text-ink-500 hover:text-ink-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
             <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-6 border-4 border-slate-200 dark:border-slate-800"><Zap className="w-8 h-8 text-slate-400 dark:text-slate-500" /></div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Out of Credits</h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-6">Daily restoration credits exhausted. Next refill in:</p>
-              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl px-8 py-4 mb-8">
-                <Countdown targetDate={quota.nextReset} className="text-2xl font-mono text-banana-500 dark:text-banana-400" />
+              <div className="relative grid place-items-center w-14 h-14 mb-6 border border-ink-700 bg-ink-950">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-ink-500">0/3</span>
               </div>
-              <Button onClick={() => setShowZeroCreditsModal(false)} variant="secondary" className="w-full">Close</Button>
+              <h2 className="font-display text-2xl font-semibold text-ink-100 mb-2">The tray is empty</h2>
+              <p className="text-ink-400 text-sm mb-6 leading-relaxed">
+                You've used today's three exposures. Fresh chemistry mixes in:
+              </p>
+              <div className="bg-ink-950 border border-ink-700 px-8 py-4 mb-8">
+                <Countdown targetDate={quota.nextReset} className="text-2xl text-amber-400" />
+              </div>
+              <Button onClick={() => setShowZeroCreditsModal(false)} variant="secondary" className="w-full">
+                Close
+              </Button>
             </div>
           </div>
         </div>

@@ -38,8 +38,8 @@ export const Countdown: React.FC<CountdownProps> = ({ targetDate, className = ''
   }, [targetDate]);
 
   return (
-    <div className={`flex items-center gap-1.5 font-mono text-xs font-medium ${className}`}>
-      <Clock className="w-3.5 h-3.5" />
+    <div className={`flex items-center gap-1.5 font-mono text-xs tabular-nums tracking-tight ${className}`}>
+      <Clock className="w-3 h-3 opacity-70" />
       <span>{timeLeft}</span>
     </div>
   );

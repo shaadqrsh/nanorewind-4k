@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Eye, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, History, Trash2, AlertTriangle } from 'lucide-react';
+import { Download, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, History, Trash2, AlertTriangle } from 'lucide-react';
 import { RestorationStatus } from '../types';
 import { Button } from './Button';
 
@@ -13,7 +13,6 @@ interface RestoredViewProps {
 
 type ViewMode = 'original' | 'restored' | 'side-by-side' | 'slider';
 
-// Build the download filename from the original: "photo.jpg" -> "photo_restored.png".
 const buildDownloadName = (name: string): string => {
   const base = name.replace(/\.[^./\\]+$/, '') || 'image';
   return `${base}_restored.png`;
@@ -26,254 +25,220 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
-  // Handle Slider Interactions
   const handleMove = useCallback((clientX: number) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const percentage = (x / rect.width) * 100;
-    setSliderPos(percentage);
+    setSliderPos((x / rect.width) * 100);
   }, []);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    isDragging.current = true;
-    handleMove(e.clientX);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    isDragging.current = true;
-    handleMove(e.touches[0].clientX);
-  };
+  const handleMouseDown = (e: React.MouseEvent) => { isDragging.current = true; handleMove(e.clientX); };
+  const handleTouchStart = (e: React.TouchEvent) => { isDragging.current = true; handleMove(e.touches[0].clientX); };
 
   useEffect(() => {
-    const handleGlobalMove = (e: MouseEvent) => {
-      if (isDragging.current) {
-        handleMove(e.clientX);
-      }
-    };
-    
-    const handleGlobalUp = () => {
-      isDragging.current = false;
-    };
-    
-    const handleGlobalTouchMove = (e: TouchEvent) => {
-      if (isDragging.current) {
-        handleMove(e.touches[0].clientX);
-      }
-    };
-
-    window.addEventListener('mousemove', handleGlobalMove);
-    window.addEventListener('mouseup', handleGlobalUp);
-    window.addEventListener('touchmove', handleGlobalTouchMove);
-    window.addEventListener('touchend', handleGlobalUp);
-
+    const onMove = (e: MouseEvent) => { if (isDragging.current) handleMove(e.clientX); };
+    const onUp = () => { isDragging.current = false; };
+    const onTouch = (e: TouchEvent) => { if (isDragging.current) handleMove(e.touches[0].clientX); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onTouch);
+    window.addEventListener('touchend', onUp);
     return () => {
-      window.removeEventListener('mousemove', handleGlobalMove);
-      window.removeEventListener('mouseup', handleGlobalUp);
-      window.removeEventListener('touchmove', handleGlobalTouchMove);
-      window.removeEventListener('touchend', handleGlobalUp);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onTouch);
+      window.removeEventListener('touchend', onUp);
     };
   }, [handleMove]);
 
+  // ── Developing state ──────────────────────────────────────────
   if (status === 'loading') {
     return (
-      <div className="flex flex-col items-center justify-center w-full h-full p-12">
-        <div className="relative w-24 h-24 mb-6">
-          <div className="absolute inset-0 border-4 border-slate-700 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-banana-500 rounded-full border-t-transparent animate-spin"></div>
-          <div className="absolute inset-0 m-auto w-12 h-12 rounded-xl bg-gradient-to-br from-banana-400 to-banana-600 flex items-center justify-center shadow-lg animate-pulse">
-            <History className="w-7 h-7 text-slate-900" strokeWidth={2.5} />
-          </div>
+      <div className="relative flex flex-col items-center justify-center w-full h-full p-12 overflow-hidden">
+        {/* the plate, emerging from the bath */}
+        <div className="relative w-44 h-44 mb-8 border border-ink-700 overflow-hidden bg-ink-950">
+          <img
+            src={originalUrl}
+            alt="Developing"
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ filter: 'sepia(0.6) brightness(0.45) contrast(0.8)' }}
+          />
+          {/* scanning safelight */}
+          <div className="absolute inset-x-0 h-1/3 bg-gradient-to-b from-transparent via-amber-500/25 to-transparent animate-scan" />
+          {/* corner marks */}
+          <span className="absolute top-1 left-1 w-2.5 h-2.5 border-t border-l border-amber-500/60" />
+          <span className="absolute bottom-1 right-1 w-2.5 h-2.5 border-b border-r border-amber-500/60" />
         </div>
-        <h3 className="text-xl font-bold text-slate-200 mb-2">Restoring Image...</h3>
-        <p className="text-slate-400 text-center max-w-sm">
-          Applying Sony A1 simulation, geometry correction, and 4K enhancements...
+        <h3 className="font-display text-xl font-semibold text-ink-100 mb-2">Developing the plate…</h3>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 text-center max-w-xs leading-relaxed">
+          Sony A1 simulation · geometry correction · 4K enhancement
         </p>
+        <div className="mt-5 flex items-center gap-1.5">
+          {[0, 1, 2].map(i => (
+            <span key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
+          ))}
+        </div>
       </div>
     );
   }
 
+  // ── Loaded, not yet developed ─────────────────────────────────
   if (status === 'idle' || !restoredUrl) {
     return (
-        <div className="w-full h-full flex flex-col items-center justify-center p-4">
-            <img 
-                src={originalUrl} 
-                alt="Original Preview" 
-                className="max-w-full max-h-[400px] object-contain rounded-lg shadow-lg border border-slate-700" 
-            />
-            <div className="mt-4 flex flex-col items-center gap-2">
-                <p className="text-slate-400 text-sm">Ready to restore. Click the button on the left.</p>
-                <button 
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="text-red-400 hover:text-red-300 text-xs font-medium flex items-center gap-1 transition-colors"
-                >
-                  <Trash2 className="w-3 h-3" /> Remove Image
-                </button>
-            </div>
-
-            {/* Confirmation Modal Inline for Idle State */}
-            {showDeleteConfirm && (
-                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 rounded-xl">
-                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-xs w-full shadow-2xl">
-                    <h3 className="text-lg font-bold text-white mb-2">Remove Image?</h3>
-                    <p className="text-slate-400 text-sm mb-4">This will clear the current image.</p>
-                    <div className="flex gap-2">
-                       <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 py-2 px-3 text-sm">Cancel</Button>
-                       <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 py-2 px-3 text-sm">Remove</Button>
-                    </div>
-                  </div>
-                </div>
-            )}
+      <div className="w-full h-full flex flex-col items-center justify-center p-6">
+        <div className="relative max-w-full">
+          <img src={originalUrl} alt="Original Preview" className="max-w-full max-h-[400px] object-contain border border-ink-700 shadow-plate" />
+          <span className="absolute top-2 left-2 font-mono text-[9px] uppercase tracking-widest text-ink-300 bg-ink-950/70 px-1.5 py-0.5">
+            Undeveloped
+          </span>
         </div>
+        <div className="mt-5 flex flex-col items-center gap-3">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500">Ready · develop the plate at left</p>
+          <button onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ink-500 hover:text-rust-400 transition-colors">
+            <Trash2 className="w-3 h-3" /> Discard
+          </button>
+        </div>
+
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 z-50 grid place-items-center bg-ink-950/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-xs bg-ink-900 border border-ink-700 shadow-plate p-6">
+              <h3 className="font-display text-lg font-semibold text-ink-100 mb-2">Discard plate?</h3>
+              <p className="text-ink-400 text-sm mb-5">This clears the current image.</p>
+              <div className="flex gap-2">
+                <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 !py-2 !px-3">Cancel</Button>
+                <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-3">Discard</Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
+  // ── Developed ─────────────────────────────────────────────────
+  const tabs: { mode: ViewMode; label: string; Icon: typeof ImageIcon }[] = [
+    { mode: 'original', label: 'Original', Icon: ImageIcon },
+    { mode: 'restored', label: 'Restored', Icon: Sparkles },
+    { mode: 'slider', label: 'Compare', Icon: MoveHorizontal },
+    { mode: 'side-by-side', label: 'Diptych', Icon: Columns },
+  ];
+
   return (
-    <div className="flex flex-col w-full h-full relative">
-      {/* View Toggle Toolbar & Download Actions */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-slate-900/80 border-b border-slate-800 backdrop-blur-sm z-10">
-        <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-            <button
-                onClick={() => setViewMode('original')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'original' ? 'bg-slate-700 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
-            >
-                <ImageIcon className="w-4 h-4" /> Original
-            </button>
-            <button
-                onClick={() => setViewMode('restored')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'restored' ? 'bg-banana-500/20 text-banana-400 shadow-lg border border-banana-500/30' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
-            >
-                <Sparkles className="w-4 h-4" /> Restored
-            </button>
-            <button
-                onClick={() => setViewMode('slider')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'slider' ? 'bg-slate-700 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
-            >
-                <MoveHorizontal className="w-4 h-4" /> Slider
-            </button>
-            <button
-                onClick={() => setViewMode('side-by-side')}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'side-by-side' ? 'bg-slate-700 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
-            >
-                <Columns className="w-4 h-4" /> Side by Side
-            </button>
+    <div className="flex flex-col w-full h-full relative animate-develop">
+      {/* Toolbar */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3 bg-ink-900/80 border-b border-ink-800 backdrop-blur-sm z-10">
+        <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
+          {tabs.map(({ mode, label, Icon }) => {
+            const active = viewMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`flex items-center gap-2 px-3 py-2 font-mono text-[11px] uppercase tracking-widest transition-colors border
+                  ${active
+                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
+                    : 'bg-transparent border-ink-700 text-ink-400 hover:text-ink-200 hover:border-ink-600'}`}
+              >
+                <Icon className="w-3.5 h-3.5" /> {label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-2">
-            <Button 
-                onClick={() => setShowDeleteConfirm(true)}
-                variant="danger"
-                className="whitespace-nowrap py-2 px-3 text-sm"
-                title="Remove Image"
-            >
-                <Trash2 className="w-4 h-4" />
-            </Button>
-            <Button
-            href={restoredUrl}
-            download={buildDownloadName(originalName)}
-            icon={Download}
-            className="whitespace-nowrap py-2 px-5 text-sm"
-            >
-            Download 4K
-            </Button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            title="Discard"
+            className="p-2.5 text-ink-400 hover:text-rust-400 border border-ink-700 hover:border-rust-500/40 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+          <Button href={restoredUrl} download={buildDownloadName(originalName)} icon={Download} className="!py-2.5 !px-5">
+            Save 4K
+          </Button>
         </div>
       </div>
 
-      {/* Confirmation Modal Overlay */}
       {showDeleteConfirm && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-500/10 flex items-center justify-center">
-                        <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Remove Image?</h3>
-                </div>
-                <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm">
-                    Are you sure? Any unsaved changes will be lost.
-                </p>
-                <div className="flex gap-3">
-                    <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 py-2 px-4 text-sm">Cancel</Button>
-                    <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 py-2 px-4 text-sm">Remove</Button>
-                </div>
+        <div className="absolute inset-0 z-50 grid place-items-center bg-ink-950/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-ink-900 border border-ink-700 shadow-plate p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="grid place-items-center w-10 h-10 bg-rust-500/10 border border-rust-500/30">
+                <AlertTriangle className="w-5 h-5 text-rust-400" />
+              </div>
+              <h3 className="font-display text-lg font-semibold text-ink-100">Discard plate?</h3>
             </div>
+            <p className="text-ink-400 text-sm mb-5">The restored result will be lost.</p>
+            <div className="flex gap-2">
+              <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 !py-2 !px-4">Cancel</Button>
+              <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-4">Discard</Button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Main Image Area */}
-      <div className="flex-grow relative w-full overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] bg-slate-950 flex items-center justify-center p-4">
-        
+      {/* Image stage - dark checkerboard tray */}
+      <div
+        className="flex-grow relative w-full overflow-hidden flex items-center justify-center p-5"
+        style={{
+          backgroundColor: '#0c0a09',
+          backgroundImage:
+            'linear-gradient(45deg, #161311 25%, transparent 25%), linear-gradient(-45deg, #161311 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #161311 75%), linear-gradient(-45deg, transparent 75%, #161311 75%)',
+          backgroundSize: '22px 22px',
+          backgroundPosition: '0 0, 0 11px, 11px -11px, -11px 0',
+        }}
+      >
         {viewMode === 'original' && (
-           <img src={originalUrl} alt="Original" className="max-w-full max-h-full object-contain rounded shadow-2xl" />
+          <img src={originalUrl} alt="Original" className="max-w-full max-h-full object-contain shadow-2xl border border-ink-700" />
         )}
 
         {viewMode === 'restored' && (
-           <img src={restoredUrl} alt="Restored" className="max-w-full max-h-full object-contain rounded shadow-2xl border-2 border-banana-500/20" />
+          <img src={restoredUrl} alt="Restored" className="max-w-full max-h-full object-contain shadow-2xl border border-amber-500/30" />
         )}
 
         {viewMode === 'side-by-side' && (
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full h-full">
-                 <div className="flex flex-col items-center justify-center min-h-0 h-full">
-                    <span className="mb-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Original</span>
-                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden rounded-lg border border-slate-700/50">
-                        <img src={originalUrl} className="w-full h-full object-cover" alt="Original" />
-                    </div>
-                 </div>
-                 <div className="flex flex-col items-center justify-center min-h-0 h-full">
-                    <span className="mb-2 text-xs font-bold text-banana-500 uppercase tracking-wider flex items-center gap-1">
-                        <Sparkles className="w-3 h-3" /> Restored
-                    </span>
-                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden rounded-lg border-2 border-banana-500/30">
-                        <img src={restoredUrl} className="w-full h-full object-cover" alt="Restored" />
-                    </div>
-                 </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full h-full">
+            <figure className="flex flex-col items-center justify-center min-h-0 h-full">
+              <figcaption className="mb-2 font-mono text-[9px] uppercase tracking-widest text-ink-500">Original</figcaption>
+              <div className="relative w-full h-full flex items-center justify-center overflow-hidden border border-ink-700">
+                <img src={originalUrl} className="w-full h-full object-cover" alt="Original" />
+              </div>
+            </figure>
+            <figure className="flex flex-col items-center justify-center min-h-0 h-full">
+              <figcaption className="mb-2 font-mono text-[9px] uppercase tracking-widest text-amber-400 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> Restored
+              </figcaption>
+              <div className="relative w-full h-full flex items-center justify-center overflow-hidden border border-amber-500/40">
+                <img src={restoredUrl} className="w-full h-full object-cover" alt="Restored" />
+              </div>
+            </figure>
+          </div>
         )}
 
         {viewMode === 'slider' && (
-            <div 
-                ref={containerRef}
-                className="relative w-full h-full max-w-4xl max-h-[70vh] cursor-ew-resize select-none overflow-hidden rounded-lg shadow-2xl group bg-black"
-                onMouseDown={handleMouseDown}
-                onTouchStart={handleTouchStart}
-            >
-                {/* Background Image (Restored) - Right Side */}
-                <img 
-                    src={restoredUrl} 
-                    alt="Restored" 
-                    className="absolute inset-0 w-full h-full object-cover"
-                    draggable={false}
-                />
-                
-                {/* Overlay Image (Original) - Left Side */}
-                <div 
-                    className="absolute inset-0 w-full h-full overflow-hidden"
-                    style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
-                >
-                    <img 
-                        src={originalUrl} 
-                        alt="Original" 
-                        className="absolute inset-0 w-full h-full object-cover"
-                        draggable={false}
-                    />
-                </div>
-
-                {/* Slider Handle */}
-                <div 
-                    className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_10px_rgba(0,0,0,0.5)] z-20 pointer-events-none"
-                    style={{ left: `${sliderPos}%` }}
-                >
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-xl">
-                        <MoveHorizontal className="w-5 h-5 text-slate-800" />
-                    </div>
-                </div>
-
-                {/* Labels */}
-                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded text-xs font-bold text-white pointer-events-none">Original</div>
-                <div className="absolute bottom-4 right-4 bg-banana-500/90 backdrop-blur-md px-3 py-1 rounded text-xs font-bold text-slate-900 pointer-events-none">Restored</div>
+          <div
+            ref={containerRef}
+            className="relative w-full h-full max-w-4xl max-h-[70vh] cursor-ew-resize select-none overflow-hidden shadow-2xl bg-ink-950 border border-ink-700"
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+          >
+            <img src={restoredUrl} alt="Restored" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+            <div className="absolute inset-0 w-full h-full overflow-hidden" style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}>
+              <img src={originalUrl} alt="Original" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
             </div>
-        )}
 
+            {/* Handle */}
+            <div className="absolute top-0 bottom-0 w-px bg-amber-500 shadow-[0_0_12px_rgba(224,164,88,0.7)] z-20 pointer-events-none" style={{ left: `${sliderPos}%` }}>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 bg-ink-950 border border-amber-500 grid place-items-center shadow-safelight">
+                <MoveHorizontal className="w-4 h-4 text-amber-500" />
+              </div>
+            </div>
+
+            <span className="absolute bottom-3 left-3 font-mono text-[9px] uppercase tracking-widest text-ink-200 bg-ink-950/70 px-2 py-1 pointer-events-none">Original</span>
+            <span className="absolute bottom-3 right-3 font-mono text-[9px] uppercase tracking-widest text-ink-950 bg-amber-500 px-2 py-1 pointer-events-none">Restored</span>
+          </div>
+        )}
       </div>
     </div>
   );

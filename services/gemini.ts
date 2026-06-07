@@ -3,7 +3,7 @@
 export const restoreImage = async (
   base64Image: string, 
   mimeType: string, 
-  prompt: string,
+  options: { process: string; chiaroscuro: boolean; matte: boolean },
   token: string
 ): Promise<string> => {
   try {
@@ -16,7 +16,9 @@ export const restoreImage = async (
       body: JSON.stringify({
         image: base64Image,
         mimeType: mimeType,
-        prompt: prompt
+        process: options.process,
+        chiaroscuro: options.chiaroscuro,
+        matte: options.matte
       })
     });
 
