@@ -11,6 +11,13 @@ const assertConfig = () => {
   }
 };
 
+// Exposes validated config for direct GoTrue REST calls (e.g. user updates,
+// which supabase-js's updateUser() can't do without a stored session).
+export const getAuthConfig = () => {
+  assertConfig();
+  return { url: supabaseUrl!, anonKey: supabaseAnonKey! };
+};
+
 // Unscoped client used for auth operations (signup/login/etc).
 // Lazily created so a missing env var surfaces as a handled error, not a module-load crash.
 let _global: ReturnType<typeof createClient> | null = null;
