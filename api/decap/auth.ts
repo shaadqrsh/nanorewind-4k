@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getProxyBaseUrl } from './_base-url.js';
 
 /**
  * Decap CMS GitHub OAuth — step 1 of 2 (the "auth" endpoint).
@@ -11,9 +12,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
  * This serves the Emaad portfolio (and any other Decap site) as a shared,
  * free OAuth proxy hosted alongside this app's other Vercel functions.
  *
- * Required Vercel environment variables:
- *   GITHUB_OAUTH_ID      — the OAuth App's Client ID
- *   GITHUB_OAUTH_SECRET  — the OAuth App's Client Secret (used in callback.ts)
+ * Environment variables:
+ *   GITHUB_OAUTH_ID      — the OAuth App's Client ID          (required)
+ *   GITHUB_OAUTH_SECRET  — the OAuth App's Client Secret      (used in callback.ts)
+ *   OAUTH_PROXY_URL      — this proxy's public origin          (optional; see
+ *                          _base-url.ts — auto-detected from the request if unset)
  */
 export default function handler(req: VercelRequest, res: VercelResponse) {
   const clientId = process.env.GITHUB_OAUTH_ID;
@@ -25,9 +28,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   // callback verifies it via the cookie we set here.
   const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-  const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
-  const host = req.headers.host;
-  const redirectUri = `${proto}://${host}/api/decap/callback`;
+  const redirectUri = `${getProxyBaseUrl(req)}/api/decap/callback`;
 
   const params = new URLSearchParams({
     client_id: clientId,
