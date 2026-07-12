@@ -23,6 +23,9 @@ Restore old, scratched, or blurry photos to crisp 4K in seconds.
 
 - 🪄 **Photo restoration** — repair old, scratched, or blurry photos.
 - 🎯 **4K output** — full high-resolution restoration.
+- 🎞️ **Developer processes** — render results in distinct photographic styles: Standard, Silver Gelatin (B&W), Albumen (sepia), Cyanotype, Lumière Autochrome, and Kodachrome 64.
+- 🌗 **Atmospheric modifiers** — optional Chiaroscuro (deeper dramatic shadows) and Matte Emulsion (softened vintage-paper highlights).
+- 🔍 **Before / after compare** — drag-to-reveal slider to inspect the restoration against the original.
 - 🎟️ **Daily free credits** — 3 restorations/day, tracked in Supabase.
 - 🔒 **Secure by design** — all auth and database logic runs server-side; no secrets in the browser.
 
@@ -52,6 +55,8 @@ npx vercel dev
 
 > [!NOTE]
 > Plain `npm run dev` runs the frontend only — the `/api` routes require `vercel dev` (or a Vercel deployment).
+
+The landing page features an auto-sweeping before/after demo. Swap in your own example by replacing [`public/showcase/before.png`](public/showcase/before.png) and [`public/showcase/after.png`](public/showcase/after.png) (use the same dimensions for the cleanest reveal).
 
 ## 📦 Deployment
 
