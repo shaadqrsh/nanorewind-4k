@@ -1,29 +1,40 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, History, Trash2, AlertTriangle } from 'lucide-react';
+import { Download, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, Trash2, AlertTriangle, X } from 'lucide-react';
 import { RestorationStatus } from '../types';
 import { Button } from './Button';
+import { downloadImage, restoredFilename } from '../utils/image';
 
 interface RestoredViewProps {
   originalUrl: string;
   originalName: string;
   restoredUrl: string | null;
   status: RestorationStatus;
+  archived: boolean;   // true when this result is saved in the archive
   onRemove: () => void;
 }
 
 type ViewMode = 'original' | 'restored' | 'side-by-side' | 'slider';
 
-const buildDownloadName = (name: string): string => {
-  const base = name.replace(/\.[^./\\]+$/, '') || 'image';
-  return `${base}_restored.png`;
-};
-
-export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, originalName, restoredUrl, status, onRemove }) => {
+export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, originalName, restoredUrl, status, archived, onRemove }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('slider');
   const [sliderPos, setSliderPos] = useState(50);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+
+  const handleDownload = async () => {
+    if (!restoredUrl) return;
+    setIsDownloading(true);
+    try {
+      await downloadImage(restoredUrl, restoredFilename(originalName));
+    } catch {
+      // Last resort: open the image so it can be saved by hand.
+      window.open(restoredUrl, '_blank', 'noopener');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleMove = useCallback((clientX: number) => {
     if (!containerRef.current) return;
@@ -147,14 +158,15 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
         </div>
 
         <div className="flex items-center gap-2">
+          {/* An archived result is safe to close; an unsaved one asks first. */}
           <button
-            onClick={() => setShowDeleteConfirm(true)}
-            title="Discard"
+            onClick={() => (archived ? onRemove() : setShowDeleteConfirm(true))}
+            title={archived ? 'Close' : 'Discard'}
             className="p-2.5 text-ink-400 hover:text-rust-400 border border-ink-700 hover:border-rust-500/40 transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
+            {archived ? <X className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
           </button>
-          <Button href={restoredUrl} download={buildDownloadName(originalName)} icon={Download} className="!py-2.5 !px-5">
+          <Button onClick={handleDownload} isLoading={isDownloading} icon={Download} className="!py-2.5 !px-5">
             Save 4K
           </Button>
         </div>
@@ -169,7 +181,7 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
               </div>
               <h3 className="font-display text-lg font-semibold text-ink-100">Remove photo?</h3>
             </div>
-            <p className="text-ink-400 text-sm mb-5">The restored result will be lost.</p>
+            <p className="text-ink-400 text-sm mb-5">This result wasn't saved to your archive, so it will be lost. Download it first to keep it.</p>
             <div className="flex gap-2">
               <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 !py-2 !px-4">Cancel</Button>
               <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-4">Remove</Button>

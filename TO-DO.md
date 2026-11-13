@@ -6,7 +6,7 @@ This document serves as a guide for implementing new features and enhancements f
 
 ## 📅 Roadmap Overview
 
-1. [ ] **[Phase 1] The Plate Archive (Restoration Library)**
+1. [ ] **[Phase 1] The Plate Archive (Restoration Library)** — built, awaiting live test
 2. [ ] **[Phase 2] The Atelier Entrance (Landing Page)**
 3. [ ] **[Phase 3] API Rate-Limiting Decorator**
 4. [ ] **[Phase 4] Suggested Enhancements (Batching, Sharing, Fine-Tuning)**
@@ -18,37 +18,18 @@ This document serves as a guide for implementing new features and enhancements f
 ### 1. 🎞️ The Plate Archive (Restoration Library)
 **Goal:** Allow users to save, browse, download, and delete their previous restorations. Clicking an archived item should reload the original/restored slider for detailed inspection.
 
-#### **Database & Storage (Supabase)**
-- [ ] **Create Database Table:** Define a schema migration for the `restorations` table in Supabase.
-  ```sql
-  CREATE TABLE IF NOT EXISTS "nanorewind-4k".restorations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES "nanorewind-4k".profiles(user_id) ON DELETE CASCADE,
-    original_url TEXT NOT NULL,  -- URL to Supabase Storage bucket
-    restored_url TEXT NOT NULL,  -- URL to Supabase Storage bucket
-    prompt TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-  );
-  ALTER TABLE "nanorewind-4k".restorations ENABLE ROW LEVEL SECURITY;
-  CREATE POLICY "Users can manage their own restorations" 
-    ON "nanorewind-4k".restorations 
-    FOR ALL USING (auth.uid() = user_id);
-  ```
-- [ ] **Configure Storage Bucket:** Create a Supabase Storage bucket named `plates` or `restorations` with folder restrictions (`/user_id/*`) to ensure privacy and security.
+#### **Database & Storage (Supabase)** — see `backend/supabase_schema.sql`
+- [x] **Create Database Table:** `"nanorewind-4k".restorations` stores storage *paths* (not URLs) plus the structured treatment (`process`, `chiaroscuro`, `matte`) and `original_name`. RLS: select/insert/delete own rows only; inserts must point inside the caller's folder; rows are immutable.
+- [x] **Configure Storage Bucket:** private `nanorewind-plates` bucket (namespaced, since the Supabase project is shared), files at `<user_id>/<restoration_id>/{original,restored}.<ext>`, with RLS that confines each user to their own folder. The API hands out 6-hour signed URLs.
 
 #### **Backend Endpoints (`/api/*`)**
-- [ ] **Update `/api/restore.ts`:**
-  - After receiving the base64 restored image from Google Gemini, upload both the original image and restored image to Supabase Storage.
-  - Insert a record into the `"nanorewind-4k".restorations` table using the authenticated user's ID and public storage URLs.
-- [ ] **Add `/api/restorations/list.ts` (GET):** Retrieve all restorations for the authenticated user, sorted by `created_at DESC`.
-- [ ] **Add `/api/restorations/delete.ts` (DELETE):** Delete a record from the database and remove the associated assets from Supabase Storage.
+- [x] **Update `/api/restore.ts`:** uploads both images and inserts the row after Gemini responds. An archive failure is logged and returns `restoration: null` rather than failing a request the user already spent a credit on. Input is now validated *before* the credit is deducted.
+- [x] **Add `/api/restorations.ts`:** `GET` lists newest-first (48 per page, `?before=` cursor) and `DELETE ?id=` removes files and then the row. One file serves both methods to stay under Vercel Hobby's 12-function limit.
 
 #### **Frontend UI & State**
-- [ ] **Create `ArchiveView.tsx` Component:**
-  - Design a grid overlay or sidebar panel representing the "Atelier Vault".
-  - Show compact before/after thumbnails with restoration dates and applied treatment labels.
-- [ ] **Integrate History Selection:** Clicking a vault thumbnail should load its URLs into the main `RestoredView` component, restoring the slider/comparison modes.
-- [ ] **Add Archive Actions:** Add options to download, delete, or share the archived image directly from the grid.
+- [x] **Create `ArchiveView.tsx`:** grid overlay opened from the header's Archive button. Split before/after thumbnails (they sweep to "after" on hover), style code chip, date and treatment label, plus skeleton, empty, error and "Load older" states.
+- [x] **Integrate History Selection:** clicking a plate loads it into `RestoredView` and restores its original style selection in the left rail.
+- [x] **Add Archive Actions:** download (blob-based, because `<a download>` is ignored cross-origin), share (native share sheet with the file, falling back to clipboard copy), and delete with confirmation. Public share links remain Phase 4.
 
 ---
 

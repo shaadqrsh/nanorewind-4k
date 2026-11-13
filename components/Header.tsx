@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { History, LogOut, AlertTriangle, Settings } from 'lucide-react';
+import { History, LogOut, AlertTriangle, Settings, Archive } from 'lucide-react';
 import { Countdown } from './Countdown';
 import { User } from '../types';
 
@@ -8,9 +8,10 @@ interface HeaderProps {
   quota: { remaining: number; allowed: boolean; nextReset?: number } | null;
   onLogout: () => void;
   onOpenSettings: () => void;
+  onOpenArchive: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSettings }) => {
+export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSettings, onOpenArchive }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const remaining = quota?.remaining ?? 0;
   const total = 3;
@@ -24,8 +25,8 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
         <div className="container mx-auto max-w-7xl px-5 h-[72px] flex items-center justify-between">
 
           {/* Masthead */}
-          <div className="flex items-center gap-3.5">
-            <div className="relative grid place-items-center w-11 h-11 bg-ink-900 border border-ink-700 shadow-safelight">
+          <div className="flex items-center gap-2.5 sm:gap-3.5">
+            <div className="relative grid place-items-center w-9 h-9 sm:w-11 sm:h-11 bg-ink-900 border border-ink-700 shadow-safelight">
               <div className="absolute inset-0 bg-amber-500/5 animate-safelight-pulse" />
               <History className="relative w-5 h-5 text-amber-500" strokeWidth={2} />
               {/* corner registration marks */}
@@ -33,10 +34,10 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
               <span className="absolute bottom-1 right-1 w-1 h-1 border-b border-r border-ink-600" />
             </div>
             <div className="flex flex-col">
-              <h1 className="font-display text-[22px] leading-none font-semibold text-ink-100 tracking-tight">
+              <h1 className="font-display text-lg sm:text-[22px] leading-none font-semibold text-ink-100 tracking-tight">
                 NanoRewind
               </h1>
-              <span className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink-500">
+              <span className="hidden sm:block mt-1 font-mono text-[9px] uppercase tracking-widest text-ink-500">
                 AI Photo Restoration · 4K
               </span>
             </div>
@@ -44,11 +45,11 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
 
           {/* Controls */}
           {user && (
-            <div className="flex items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-2 sm:gap-6">
 
-              {/* Exposures-remaining gauge */}
+              {/* Exposures-remaining gauge (countdown row hidden on phones for width) */}
               <div className="flex flex-col items-end">
-                <div className="flex items-center gap-1.5 min-h-[14px]">
+                <div className="hidden sm:flex items-center gap-1.5 min-h-[14px]">
                   {quota?.nextReset ? (
                     <>
                       <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Resets in</span>
@@ -58,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
                     <span className="font-mono text-[9px] uppercase tracking-widest text-patina-400">Credits full</span>
                   )}
                 </div>
-                <div className="mt-1.5 flex items-center gap-2.5" title={`${remaining} of ${total} daily credits left`}>
+                <div className="sm:mt-1.5 flex items-center gap-2.5" title={`${remaining} of ${total} daily credits left`}>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: total }).map((_, i) => (
                       <span
@@ -80,7 +81,16 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
 
               <div className="h-8 w-px bg-ink-800 hidden sm:block" />
 
-              <div className="flex items-center gap-3">
+              <button
+                onClick={onOpenArchive}
+                className="flex items-center gap-2 p-2 sm:px-3.5 sm:py-2 text-ink-300 hover:text-amber-400 border border-ink-700 hover:border-amber-500/40 transition-colors"
+                title="Archive"
+              >
+                <Archive className="w-[18px] h-[18px] sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline font-mono text-[11px] uppercase tracking-widest">Archive</span>
+              </button>
+
+              <div className="flex items-center gap-1 sm:gap-3">
                 <div className="hidden sm:flex flex-col items-end leading-tight">
                   <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Signed in as</span>
                   <span className="text-sm text-ink-200 max-w-[150px] truncate">
@@ -90,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
 
                 <button
                   onClick={onOpenSettings}
-                  className="p-2.5 text-ink-400 hover:text-amber-400 border border-transparent hover:border-ink-700 transition-colors"
+                  className="p-2 sm:p-2.5 text-ink-400 hover:text-amber-400 border border-transparent hover:border-ink-700 transition-colors"
                   title="Settings"
                 >
                   <Settings className="w-[18px] h-[18px]" />
@@ -98,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
 
                 <button
                   onClick={() => setShowLogoutConfirm(true)}
-                  className="p-2.5 text-ink-400 hover:text-rust-400 border border-transparent hover:border-rust-500/40 transition-colors"
+                  className="p-2 sm:p-2.5 text-ink-400 hover:text-rust-400 border border-transparent hover:border-rust-500/40 transition-colors"
                   title="Sign Out"
                 >
                   <LogOut className="w-[18px] h-[18px]" />

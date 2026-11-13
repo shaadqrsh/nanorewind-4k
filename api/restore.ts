@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireUser } from './_lib/auth.js';
 import { ai, IMAGE_MODEL } from './_lib/gemini.js';
+import { archiveRestoration, RestorationDTO } from './_lib/archive.js';
+
+const PROCESSES = ['standard', 'silver-gelatin', 'albumen', 'cyanotype', 'autochrome', 'kodachrome'];
+const UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -8,7 +12,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const ctx = await requireUser(req, res);
   if (!ctx) return;
 
-  const { image, mimeType, process, chiaroscuro, matte } = req.body || {};
+  const { image, mimeType, originalName, chiaroscuro, matte } = req.body || {};
+  // Validate before deducting a credit, so a bad request never costs one.
+  if (typeof image !== 'string' || !image || !UPLOAD_TYPES.includes(mimeType)) {
+    return res.status(400).json({ error: 'Upload a JPG, PNG or WebP image.' });
+  }
+  const process: string = PROCESSES.includes(req.body.process) ? req.body.process : 'standard';
+
   try {
     // Atomic credit deduction is handled server-side by the SECURITY DEFINER RPC.
     const { data: result, error: rpcError } = await ctx.supabase.rpc('deduct_credits');
@@ -69,15 +79,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contents: { parts: [{ inlineData: { data: image, mimeType } }, { text: finalPrompt }] },
     });
 
-    let restoredBase64: string | null = null;
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        restoredBase64 = part.inlineData.data;
-        break;
-      }
-    }
+    const restoredPart = response.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+    const restoredBase64 = restoredPart?.inlineData?.data;
     if (!restoredBase64) throw new Error('No image returned');
-    res.json({ image: `data:image/png;base64,${restoredBase64}` });
+    const restoredMime = restoredPart?.inlineData?.mimeType || 'image/png';
+
+    // The credit is already spent, so a failed archive save must not fail the
+    // request. The client tells the user to download the result instead.
+    let restoration: RestorationDTO | null = null;
+    try {
+      restoration = await archiveRestoration(ctx.supabase, ctx.user.id, {
+        original: {
+          base64: image,
+          mimeType,
+          name: typeof originalName === 'string' ? originalName.slice(0, 200) : null,
+        },
+        restored: { base64: restoredBase64, mimeType: restoredMime },
+        treatment: { process, chiaroscuro: !!chiaroscuro, matte: !!matte },
+      });
+    } catch (archiveErr) {
+      console.error('Archive save failed:', archiveErr);
+    }
+
+    res.json({ image: `data:${restoredMime};base64,${restoredBase64}`, restoration });
   } catch (err) {
     console.error('Restore error:', err);
     res.status(500).json({ error: (err as Error).message });

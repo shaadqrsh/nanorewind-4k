@@ -3,11 +3,13 @@ import { Dropzone } from './components/Dropzone';
 import { Header } from './components/Header';
 import { RestoredView } from './components/RestoredView';
 import { AuthScreen } from './components/AuthScreen';
-import { PromptSelector, PromptOptions } from './components/PromptSelector';
+import { PromptSelector, PromptOptions, toPromptOptions } from './components/PromptSelector';
 import { SettingsModal } from './components/SettingsModal';
+import { ArchiveView } from './components/ArchiveView';
 import { restoreImage } from './services/gemini';
 import { authService } from './services/auth';
-import { ImageFile, RestorationStatus, User } from './types';
+import { useArchive } from './hooks/useArchive';
+import { ImageFile, Restoration, RestorationStatus, User } from './types';
 import { AlertCircle, Wand2, Check, X, XCircle, Loader2, History } from 'lucide-react';
 import { Button } from './components/Button';
 import { Countdown } from './components/Countdown';
@@ -33,6 +35,11 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [quota, setQuota] = useState({ allowed: false, remaining: 0, nextReset: 0 });
   const [showZeroCreditsModal, setShowZeroCreditsModal] = useState(false);
+
+  const archive = useArchive();
+  const [showArchive, setShowArchive] = useState(false);
+  // Archive id of the result in the workspace; null for unsaved or no result.
+  const [activeRestorationId, setActiveRestorationId] = useState<string | null>(null);
 
   const refreshQuota = useCallback(async () => {
     const q = await authService.checkQuota();
@@ -82,10 +89,15 @@ export const App: React.FC = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
       if (e.target?.result) {
-        setFile({ file: selectedFile, previewUrl: e.target.result as string });
+        setFile({
+          previewUrl: e.target.result as string,
+          name: selectedFile.name,
+          mimeType: selectedFile.type,
+        });
         setRestoredImage(null);
         setStatus('idle');
         setError(null);
+        setActiveRestorationId(null);
       }
     };
     reader.readAsDataURL(selectedFile);
@@ -107,13 +119,17 @@ export const App: React.FC = () => {
       setStatus('loading');
       setError(null);
       setRestoredImage(null);
+      setActiveRestorationId(null);
 
       const base64Data = file.previewUrl.split(',')[1];
-      const mimeType = file.file.type;
 
-      const restoredBase64 = await restoreImage(base64Data, mimeType, promptOptions, token);
+      const { image, restoration } = await restoreImage(base64Data, file.mimeType, file.name, promptOptions, token);
       await refreshQuota();
-      setRestoredImage(restoredBase64);
+      setRestoredImage(image);
+      if (restoration) {
+        archive.add(restoration);
+        setActiveRestorationId(restoration.id);
+      }
       setStatus('success');
     } catch (err: any) {
       setError(err.message || "Restoration failed.");
@@ -126,6 +142,7 @@ export const App: React.FC = () => {
     setRestoredImage(null);
     setStatus('idle');
     setError(null);
+    setActiveRestorationId(null);
   };
 
   const handleLogout = async () => {
@@ -135,6 +152,31 @@ export const App: React.FC = () => {
     setFile(null);
     setRestoredImage(null);
     setStatus('idle');
+    setActiveRestorationId(null);
+    setShowArchive(false);
+    archive.reset();
+  };
+
+  const handleOpenArchive = () => {
+    setShowArchive(true);
+    archive.ensureFresh();
+  };
+
+  // Loads an archived plate into the workspace with its original treatment.
+  const handleSelectRestoration = (r: Restoration) => {
+    if (status === 'loading' || !r.originalUrl || !r.restoredUrl) return;
+    setFile({ previewUrl: r.originalUrl, name: r.originalName ?? 'photo', mimeType: '' });
+    setRestoredImage(r.restoredUrl);
+    setPromptOptions(toPromptOptions(r));
+    setStatus('success');
+    setError(null);
+    setActiveRestorationId(r.id);
+    setShowArchive(false);
+  };
+
+  const handleDeleteRestoration = async (id: string) => {
+    await archive.remove(id);
+    if (id === activeRestorationId) handleReset();
   };
 
   const handleAuthSuccess = async () => {
@@ -195,6 +237,7 @@ export const App: React.FC = () => {
         quota={quota}
         onLogout={handleLogout}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenArchive={handleOpenArchive}
       />
 
       <main className="flex-grow md:overflow-hidden container mx-auto max-w-7xl px-5 py-5">
@@ -269,9 +312,21 @@ export const App: React.FC = () => {
                   <span className="font-mono text-[11px] text-amber-500/80">3</span>
                   <h2 className="font-display text-base font-semibold text-ink-100">Result</h2>
                 </div>
-                <span className="font-mono text-[9px] uppercase tracking-widest text-ink-600 hidden sm:block">
-                  before / after
-                </span>
+                {status === 'success' && restoredImage ? (
+                  activeRestorationId ? (
+                    <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-patina-400">
+                      <Check className="w-3 h-3" /> Saved to archive
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-rust-400" title="This result couldn't be saved to your archive">
+                      Not saved · download to keep
+                    </span>
+                  )
+                ) : (
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-ink-600 hidden sm:block">
+                    before / after
+                  </span>
+                )}
               </header>
 
               <div className="flex-grow flex items-center justify-center bg-ink-950/60 overflow-hidden relative min-h-[400px] md:min-h-0">
@@ -290,9 +345,10 @@ export const App: React.FC = () => {
                 ) : (
                   <RestoredView
                     originalUrl={file.previewUrl}
-                    originalName={file.file.name}
+                    originalName={file.name}
                     restoredUrl={restoredImage}
                     status={status}
+                    archived={activeRestorationId !== null}
                     onRemove={handleReset}
                   />
                 )}
@@ -310,6 +366,16 @@ export const App: React.FC = () => {
           onUpdateUser={(updates) => setUser(prev => prev ? { ...prev, ...updates } : null)}
         />
       )}
+
+      <ArchiveView
+        isOpen={showArchive}
+        onClose={() => setShowArchive(false)}
+        archive={archive}
+        activeId={activeRestorationId}
+        canSelect={status !== 'loading'}
+        onSelect={handleSelectRestoration}
+        onDelete={handleDeleteRestoration}
+      />
 
       {showZeroCreditsModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/85 backdrop-blur-sm p-4">

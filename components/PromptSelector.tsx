@@ -14,6 +14,28 @@ interface PromptSelectorProps {
   onChange: (options: PromptOptions) => void;
 }
 
+export const PROCESSES = [
+  { key: 'standard', code: 'ST', label: 'Natural color', desc: 'Realistic, true-to-life restoration' },
+  { key: 'silver-gelatin', code: 'BW', label: 'Black & white', desc: 'High-contrast monochrome' },
+  { key: 'albumen', code: 'SE', label: 'Sepia', desc: 'Warm brown vintage tone' },
+  { key: 'cyanotype', code: 'CY', label: 'Cyanotype blue', desc: 'Prussian-blue photographic wash' },
+  { key: 'autochrome', code: 'AU', label: 'Soft pastel', desc: 'Muted early-color look with a gentle glow' },
+  { key: 'kodachrome', code: 'KC', label: 'Vivid film', desc: 'Punchy reds and rich contrast' },
+] as const;
+
+export const MODIFIERS = [
+  { key: 'chiaroscuro', code: 'CS', label: 'Deeper shadows', desc: 'More dramatic contrast' },
+  { key: 'matte', code: 'MT', label: 'Matte finish', desc: 'Softer highlights, vintage paper feel' },
+] as const;
+
+// Maps a stored treatment back onto selector options, falling back to the
+// default style for anything unrecognised.
+export const toPromptOptions = (t: { process: string; chiaroscuro: boolean; matte: boolean }): PromptOptions => ({
+  process: PROCESSES.find(p => p.key === t.process)?.key ?? 'standard',
+  chiaroscuro: t.chiaroscuro,
+  matte: t.matte,
+});
+
 export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChange }) => {
 
   const setProcess = (process: DeveloperProcess) => {
@@ -24,19 +46,6 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
     onChange({ ...options, [key]: !options[key] });
   };
 
-  const processes = [
-    { key: 'standard', code: 'ST', label: 'Natural color', desc: 'Realistic, true-to-life restoration' },
-    { key: 'silver-gelatin', code: 'BW', label: 'Black & white', desc: 'High-contrast monochrome' },
-    { key: 'albumen', code: 'SE', label: 'Sepia', desc: 'Warm brown vintage tone' },
-    { key: 'cyanotype', code: 'CY', label: 'Cyanotype blue', desc: 'Prussian-blue photographic wash' },
-    { key: 'autochrome', code: 'AU', label: 'Soft pastel', desc: 'Muted early-color look with a gentle glow' },
-    { key: 'kodachrome', code: 'KC', label: 'Vivid film', desc: 'Punchy reds and rich contrast' },
-  ] as const;
-
-  const modifiers = [
-    { key: 'chiaroscuro', code: 'CS', label: 'Deeper shadows', desc: 'More dramatic contrast' },
-    { key: 'matte', code: 'MT', label: 'Matte finish', desc: 'Softer highlights, vintage paper feel' },
-  ] as const;
 
   return (
     <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate">
@@ -52,7 +61,7 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
         <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Style · pick one</span>
       </div>
       <div className="divide-y divide-ink-800/70">
-        {processes.map((item) => {
+        {PROCESSES.map((item) => {
           const active = options.process === item.key;
           return (
             <button
@@ -90,7 +99,7 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
         <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Extras · optional</span>
       </div>
       <div className="divide-y divide-ink-800/70">
-        {modifiers.map((item) => {
+        {MODIFIERS.map((item) => {
           const active = options[item.key];
           return (
             <button

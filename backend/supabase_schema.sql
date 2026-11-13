@@ -98,6 +98,54 @@ BEGIN
 END;
 $$;
 
+-- --- PLATE ARCHIVE: saved restorations ---
+
+-- Each row points at two files in the private `nanorewind-plates` bucket (below).
+-- Paths are stored rather than URLs: the bucket is private, so the API mints
+-- short-lived signed URLs when it hands the archive to the owner.
+CREATE TABLE IF NOT EXISTS "nanorewind-4k".restorations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL DEFAULT auth.uid()
+    REFERENCES "nanorewind-4k".profiles(user_id) ON DELETE CASCADE,
+  original_path TEXT NOT NULL,
+  restored_path TEXT NOT NULL,
+  original_name TEXT,
+  process TEXT NOT NULL DEFAULT 'standard',
+  chiaroscuro BOOLEAN NOT NULL DEFAULT false,
+  matte BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS restorations_user_created_idx
+  ON "nanorewind-4k".restorations (user_id, created_at DESC);
+
+ALTER TABLE "nanorewind-4k".restorations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own restorations" ON "nanorewind-4k".restorations;
+CREATE POLICY "Users can view own restorations"
+ON "nanorewind-4k".restorations
+FOR SELECT
+USING ((SELECT auth.uid()) = user_id);
+
+-- A row may only reference files inside the caller's own storage folder.
+DROP POLICY IF EXISTS "Users can insert own restorations" ON "nanorewind-4k".restorations;
+CREATE POLICY "Users can insert own restorations"
+ON "nanorewind-4k".restorations
+FOR INSERT
+WITH CHECK (
+  (SELECT auth.uid()) = user_id
+  AND split_part(original_path, '/', 1) = (SELECT auth.uid())::text
+  AND split_part(restored_path, '/', 1) = (SELECT auth.uid())::text
+);
+
+DROP POLICY IF EXISTS "Users can delete own restorations" ON "nanorewind-4k".restorations;
+CREATE POLICY "Users can delete own restorations"
+ON "nanorewind-4k".restorations
+FOR DELETE
+USING ((SELECT auth.uid()) = user_id);
+
+-- No UPDATE policy: archive entries are immutable.
+
 -- --- PERMISSIONS ---
 
 -- 1. Grant usage on the custom schema to auth roles
@@ -115,3 +163,44 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA "nanorewind-4k" GRANT ALL ON SEQUENCES TO ano
 
 -- 5. Explicitly Grant Execute on the RPC function used for credits
 GRANT EXECUTE ON FUNCTION "nanorewind-4k".deduct_credits() TO anon, authenticated, service_role;
+
+-- --- PLATE ARCHIVE: storage bucket ---
+
+-- Private bucket. Files live at <user_id>/<restoration_id>/{original,restored}.<ext>,
+-- and the policies below confine each user to their own <user_id>/ folder.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'nanorewind-plates',
+  'nanorewind-plates',
+  false,
+  26214400, -- 25 MB
+  ARRAY['image/png', 'image/jpeg', 'image/webp']
+)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "nanorewind: read own plates" ON storage.objects;
+CREATE POLICY "nanorewind: read own plates"
+ON storage.objects
+FOR SELECT TO authenticated
+USING (
+  bucket_id = 'nanorewind-plates'
+  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
+);
+
+DROP POLICY IF EXISTS "nanorewind: upload own plates" ON storage.objects;
+CREATE POLICY "nanorewind: upload own plates"
+ON storage.objects
+FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'nanorewind-plates'
+  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
+);
+
+DROP POLICY IF EXISTS "nanorewind: delete own plates" ON storage.objects;
+CREATE POLICY "nanorewind: delete own plates"
+ON storage.objects
+FOR DELETE TO authenticated
+USING (
+  bucket_id = 'nanorewind-plates'
+  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
+);
