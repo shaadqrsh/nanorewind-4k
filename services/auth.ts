@@ -34,21 +34,41 @@ const takeLegacyToken = (): string | null => {
 export const authService = {
   // --- AUTH METHODS ---
 
-  // Run once on load, before getSession(). Moves tokens out of places page
-  // scripts can read: a Supabase email link puts them in the URL fragment, and
-  // older versions of this app kept one in localStorage.
-  handleEmailRedirect: async (): Promise<void> => {
-    const params = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = params.get('access_token');
+  // Run once on load, before getSession(). Finishes an email link and moves any
+  // legacy tokens into cookies. Returns what the link was for, or why it failed.
+  //   ?code=...                    email link (PKCE): exchanged on the server
+  //   ?error_description=...       Supabase rejected the link (expired, used)
+  //   #access_token=...            email sent before PKCE (legacy)
+  //   localStorage token           left by versions before cookie sessions
+  handleEmailRedirect: async (): Promise<{ purpose?: 'signup' | 'recovery'; error?: string }> => {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.substring(1));
+    const code = query.get('code');
+    const linkError = query.get('error_description') || hash.get('error_description');
+    const accessToken = hash.get('access_token');
     const legacyToken = takeLegacyToken();
 
-    if (accessToken) {
-      // Clear the fragment first so the tokens don't linger in the address bar.
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      await adoptTokens(accessToken, params.get('refresh_token')).catch(() => false);
-    } else if (legacyToken) {
-      await adoptTokens(legacyToken).catch(() => false);
+    // Clean the address bar first, so codes and tokens don't linger in history.
+    if (code || linkError || accessToken) {
+      window.history.replaceState(null, '', window.location.pathname);
     }
+
+    if (linkError) return { error: linkError };
+    if (code) {
+      try {
+        const res = await postJson('/api/auth/me', { code });
+        const data = await readJson(res);
+        return res.ok ? { purpose: data.purpose } : { error: data.error || 'This link could not be used.' };
+      } catch {
+        return { error: 'This link could not be used. Please try again.' };
+      }
+    }
+    if (accessToken) {
+      await adoptTokens(accessToken, hash.get('refresh_token')).catch(() => false);
+      return { purpose: hash.get('type') === 'recovery' ? 'recovery' : 'signup' };
+    }
+    if (legacyToken) await adoptTokens(legacyToken).catch(() => false);
+    return {};
   },
 
   signUp: async (params: { email: string; password: string; name?: string }) => {
@@ -102,7 +122,9 @@ export const authService = {
   resetPassword: async (email: string) => {
     const res = await postJson('/api/auth/recover', {
       email,
-      redirectTo: window.location.origin + '/#reset-password', // Optional: redirect to specific view
+      // The server remembers this was a reset (see the PKCE cookie), so the
+      // link needs no marker of its own.
+      redirectTo: window.location.origin + '/',
     });
     const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to send recovery email');

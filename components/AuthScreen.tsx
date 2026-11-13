@@ -8,17 +8,18 @@ export type AuthState = 'login' | 'signup';
 
 interface AuthScreenProps {
   initialView: AuthState;
+  notice?: string | null;   // why an email link did not sign the user in
   onAuthSuccess: () => void;
   onBack: () => void;
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, onAuthSuccess, onBack }) => {
+export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, notice, onAuthSuccess, onBack }) => {
   const [view, setView] = useState<AuthState>(initialView);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(notice ?? null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -41,7 +42,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, onAuthSucce
         if (data.session) {
           onAuthSuccess();
         } else if (data.user) {
-          setSuccessMsg("Account created. If verification is enabled, check your inbox.");
+          setSuccessMsg("Account created. Check your inbox and open the link in this browser.");
           setView('login');
           setIsLoading(false);
         }
@@ -60,7 +61,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, onAuthSucce
     setSuccessMsg(null);
     try {
       await authService.resetPassword(resetEmail);
-      setSuccessMsg("Password reset email sent. Check your inbox.");
+      setSuccessMsg("Reset email sent. Open the link in this browser.");
       setShowForgotModal(false);
       setResetEmail('');
     } catch (err: any) {

@@ -1,15 +1,14 @@
 import type { VercelRequest, VercelResponse } from '../_lib/vercel.js';
-import { getGlobalSupabase } from '../_lib/supabase.js';
 import { withRateLimit } from '../_lib/rateLimit.js';
 import { ensureProfileExists } from '../_lib/profile.js';
 import { publicAuthResult } from '../_lib/session.js';
 import { cleanName, isEmail, isNewPassword, NEW_PASSWORD_RULE, sameOriginUrl } from '../_lib/validate.js';
-import { setSessionCookies } from '../_lib/cookies.js';
+import { setPkceCookie, setSessionCookies } from '../_lib/cookies.js';
 import { blockCrossSite } from '../_lib/auth.js';
+import { createPkcePair, gotrue, gotrueErrorMessage, GoTrueSession } from '../_lib/gotrue.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   if (!blockCrossSite(req, res)) return;
 
   const { email, password, name, redirectTo } = req.body || {};
@@ -17,26 +16,36 @@ async function handler(req: VercelRequest, res: VercelResponse) {
   if (!isNewPassword(password)) return res.status(400).json({ error: NEW_PASSWORD_RULE });
 
   try {
-    const { data, error } = await getGlobalSupabase().auth.signUp({
-      email,
-      password,
-      options: {
+    // PKCE: the confirmation link will carry a one-time code, not tokens.
+    const { verifier, challenge } = createPkcePair();
+    const r = await gotrue('signup', {
+      query: { redirect_to: sameOriginUrl(req, redirectTo) },
+      body: {
+        email,
+        password,
         data: { name: cleanName(name) },
-        emailRedirectTo: sameOriginUrl(req, redirectTo),
+        code_challenge: challenge,
+        code_challenge_method: 's256',
       },
     });
+    if (!r.ok) return res.status(400).json({ error: gotrueErrorMessage(r.data, 'Signup failed') });
 
-    if (error) throw error;
+    // With email confirmation on, Supabase returns just the user and emails a
+    // link. With it off, it returns a session straight away.
+    const session = r.data?.access_token ? (r.data as GoTrueSession) : null;
+    const user = session?.user ?? (r.data?.id ? r.data : null);
 
-    // If auto-confirm is on, we get a session immediately. Initialize profile.
-    if (data.session) {
-      await ensureProfileExists(data.session);
-      setSessionCookies(res, data.session);
+    if (session) {
+      await ensureProfileExists(session);
+      setSessionCookies(res, session);
+    } else {
+      setPkceCookie(res, 'signup', verifier);
     }
 
-    res.json(publicAuthResult(data.session, data.user));
+    res.json(publicAuthResult(session, user));
   } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
+    console.error('Signup error:', err);
+    res.status(500).json({ error: 'Signup failed. Please try again.' });
   }
 }
 

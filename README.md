@@ -90,10 +90,11 @@ What the code enforces:
 - **Rate limits** per client IP on restore, sign-up, login and password reset (see `api/_lib/rateLimit.ts`).
 - **Security headers** in `vercel.json`, including a strict Content Security Policy that only allows scripts from this site.
 - **Sessions live in HttpOnly cookies** (`Secure`, `SameSite=Strict`, scoped to `/api`), so page scripts can't read the tokens. The server renews expired sessions itself, and state-changing requests from other sites are rejected. Sign-out revokes the session in Supabase. See `api/_lib/cookies.ts` and `api/_lib/auth.ts`.
+- **Email links use PKCE.** Confirmation and password-reset links carry a one-time code rather than tokens, and only complete sign-in in the browser that requested them.
 
 Settings to check in dashboards, because code can't enforce these:
 
-- **Supabase → Authentication → URL Configuration:** set Site URL to your production URL, and list only your own domains under Redirect URLs.
+- **Supabase → Authentication → URL Configuration:** set Site URL to your production URL, and list only your own domains under Redirect URLs. Include preview domains (e.g. `https://*-yourteam.vercel.app/**`) if you test email links on previews. Keep the default email templates (they use `{{ .ConfirmationURL }}`, which works with PKCE).
 - **Supabase → Authentication → Providers → Email:** keep "Confirm email" on, and turn on "Secure password change". Turn on leaked-password protection if your plan has it.
 - **Google Cloud → APIs & Services → Credentials:** restrict the Gemini key to the Generative Language API, and set a budget alert.
 - **Vercel → Environment Variables:** set `DECAP_ALLOWED_ORIGINS` before relying on the CMS login proxy.

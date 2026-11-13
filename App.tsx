@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { RestoredView } from './components/RestoredView';
 import { AuthScreen } from './components/AuthScreen';
 import { LandingPage } from './components/LandingPage';
+import { NewPasswordModal } from './components/NewPasswordModal';
 import { PromptSelector, PromptOptions, toPromptOptions } from './components/PromptSelector';
 import { SettingsModal } from './components/SettingsModal';
 import { ArchiveView } from './components/ArchiveView';
@@ -53,6 +54,10 @@ export const App: React.FC = () => {
   const [configError, setConfigError] = useState<string | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
+  // Set by a password-reset link; asks the user to choose the new password.
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  // Why an email link didn't sign the user in; shown on the sign-in screen.
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   const [file, setFile] = useState<ImageFile | null>(null);
   const [promptOptions, setPromptOptions] = useState<PromptOptions>({
@@ -86,8 +91,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        await authService.handleEmailRedirect();
+        const link = await authService.handleEmailRedirect();
         const session = await authService.getSession();
+
+        if (link.error && !session) {
+          setAuthNotice(link.error);
+          goTo('signin', true);
+        }
+        if (link.purpose === 'recovery' && session) setShowNewPassword(true);
 
         if (session && session.user) {
           setUser({
@@ -114,7 +125,7 @@ export const App: React.FC = () => {
     };
     init();
     document.documentElement.classList.add('dark');
-  }, [refreshQuota]);
+  }, [refreshQuota, goTo]);
 
   const handleFileSelect = useCallback((selectedFile: File) => {
     const reader = new FileReader();
@@ -273,8 +284,9 @@ export const App: React.FC = () => {
       <AuthScreen
         key={publicView}
         initialView={publicView === 'signup' ? 'signup' : 'login'}
+        notice={authNotice}
         onAuthSuccess={handleAuthSuccess}
-        onBack={() => goTo('landing')}
+        onBack={() => { setAuthNotice(null); goTo('landing'); }}
       />
     );
   }
@@ -414,6 +426,8 @@ export const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {showNewPassword && <NewPasswordModal onClose={() => setShowNewPassword(false)} />}
 
       {user && (
         <SettingsModal
