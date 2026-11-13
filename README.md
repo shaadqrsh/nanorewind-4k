@@ -89,7 +89,7 @@ What the code enforces:
 - **Data isolation.** Postgres RLS and least-privilege grants limit every user to their own profile, archive rows and storage folder. Credits only change through `deduct_credits()`.
 - **Rate limits** per client IP on restore, sign-up, login and password reset (see `api/_lib/rateLimit.ts`).
 - **Security headers** in `vercel.json`, including a strict Content Security Policy that only allows scripts from this site.
-- **Sign-out revokes the session** in Supabase, and the refresh token never reaches the browser.
+- **Sessions live in HttpOnly cookies** (`Secure`, `SameSite=Strict`, scoped to `/api`), so page scripts can't read the tokens. The server renews expired sessions itself, and state-changing requests from other sites are rejected. Sign-out revokes the session in Supabase. See `api/_lib/cookies.ts` and `api/_lib/auth.ts`.
 
 Settings to check in dashboards, because code can't enforce these:
 

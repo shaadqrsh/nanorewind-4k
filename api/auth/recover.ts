@@ -2,9 +2,12 @@ import type { VercelRequest, VercelResponse } from '../_lib/vercel.js';
 import { getGlobalSupabase } from '../_lib/supabase.js';
 import { withRateLimit } from '../_lib/rateLimit.js';
 import { isEmail, sameOriginUrl } from '../_lib/validate.js';
+import { blockCrossSite } from '../_lib/auth.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!blockCrossSite(req, res)) return;
 
   const { email, redirectTo } = req.body || {};
   if (!isEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });

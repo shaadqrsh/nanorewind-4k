@@ -10,6 +10,7 @@ import { ArchiveView } from './components/ArchiveView';
 import { restoreImage } from './services/gemini';
 import { authService } from './services/auth';
 import { useArchive } from './hooks/useArchive';
+import { SESSION_EXPIRED_EVENT } from './services/http';
 import { ImageFile, Restoration, RestorationStatus, User } from './types';
 import { AlertCircle, Wand2, Check, X, XCircle, Loader2, History } from 'lucide-react';
 import { Button } from './components/Button';
@@ -85,7 +86,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        authService.handleEmailRedirect();
+        await authService.handleEmailRedirect();
         const session = await authService.getSession();
 
         if (session && session.user) {
@@ -135,9 +136,6 @@ export const App: React.FC = () => {
 
   const handleRestore = async () => {
     try {
-      const token = authService.getToken();
-      if (!token) return;
-
       const currentQuota = await refreshQuota();
       if (!currentQuota?.allowed) {
         setShowZeroCreditsModal(true);
@@ -153,7 +151,7 @@ export const App: React.FC = () => {
 
       const base64Data = file.previewUrl.split(',')[1];
 
-      const { image, restoration } = await restoreImage(base64Data, file.mimeType, file.name, promptOptions, token);
+      const { image, restoration } = await restoreImage(base64Data, file.mimeType, file.name, promptOptions);
       await refreshQuota();
       setRestoredImage(image);
       if (restoration) {
@@ -175,8 +173,8 @@ export const App: React.FC = () => {
     setActiveRestorationId(null);
   };
 
-  const handleLogout = async () => {
-    await authService.signOut();
+  // Drops all signed-in state and returns to the home page.
+  const clearSignedInState = useCallback(() => {
     setIsSignedIn(false);
     setUser(null);
     setFile(null);
@@ -184,9 +182,23 @@ export const App: React.FC = () => {
     setStatus('idle');
     setActiveRestorationId(null);
     setShowArchive(false);
+    setShowSettings(false);
     archive.reset();
     goTo('landing', true);
+  }, [archive.reset, goTo]);
+
+  const handleLogout = async () => {
+    await authService.signOut();
+    clearSignedInState();
   };
+
+  // The session can end while the app is open (revoked, or signed out on
+  // another device). API calls then return 401; go back to the home page
+  // instead of leaving the user in a workspace where nothing works.
+  useEffect(() => {
+    window.addEventListener(SESSION_EXPIRED_EVENT, clearSignedInState);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, clearSignedInState);
+  }, [clearSignedInState]);
 
   const handleOpenArchive = () => {
     setShowArchive(true);

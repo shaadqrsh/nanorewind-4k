@@ -4,9 +4,13 @@ import { withRateLimit } from '../_lib/rateLimit.js';
 import { ensureProfileExists } from '../_lib/profile.js';
 import { publicAuthResult } from '../_lib/session.js';
 import { cleanName, isEmail, isNewPassword, NEW_PASSWORD_RULE, sameOriginUrl } from '../_lib/validate.js';
+import { setSessionCookies } from '../_lib/cookies.js';
+import { blockCrossSite } from '../_lib/auth.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!blockCrossSite(req, res)) return;
 
   const { email, password, name, redirectTo } = req.body || {};
   if (!isEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
@@ -27,6 +31,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // If auto-confirm is on, we get a session immediately. Initialize profile.
     if (data.session) {
       await ensureProfileExists(data.session);
+      setSessionCookies(res, data.session);
     }
 
     res.json(publicAuthResult(data.session, data.user));

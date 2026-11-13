@@ -1,98 +1,84 @@
 // API runs as same-origin Vercel serverless functions under /api.
+//
+// The session lives in HttpOnly cookies set by the API, so this code never
+// sees or stores a token. Same-origin fetch() sends those cookies automatically.
 import { readJson } from './http';
 
-// Token Management
-const TOKEN_KEY = 'nanorewind_auth_token';
-const getUserToken = () => localStorage.getItem(TOKEN_KEY);
-const setUserToken = (token: string) => localStorage.setItem(TOKEN_KEY, token);
-const clearUserToken = () => localStorage.removeItem(TOKEN_KEY);
+// Where older versions kept the token. Read once to migrate, then deleted.
+const LEGACY_TOKEN_KEY = 'nanorewind_auth_token';
+
+const postJson = (url: string, body: unknown = {}) =>
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+// Hands tokens that reached the page outside the API to the server, which
+// moves them into HttpOnly cookies.
+const adoptTokens = async (accessToken: string, refreshToken?: string | null) => {
+  const res = await postJson('/api/auth/me', { access_token: accessToken, refresh_token: refreshToken ?? null });
+  return res.ok;
+};
+
+const takeLegacyToken = (): string | null => {
+  try {
+    const token = localStorage.getItem(LEGACY_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    return token;
+  } catch {
+    return null;
+  }
+};
 
 export const authService = {
   // --- AUTH METHODS ---
 
-  setSession: (token: string) => {
-    setUserToken(token);
-  },
-
-  handleEmailRedirect: () => {
-    const hash = window.location.hash;
-    if (!hash) return null;
-
-    // Parse hash params (access_token, etc)
-    const params = new URLSearchParams(hash.substring(1)); // remove #
+  // Run once on load, before getSession(). Moves tokens out of places page
+  // scripts can read: a Supabase email link puts them in the URL fragment, and
+  // older versions of this app kept one in localStorage.
+  handleEmailRedirect: async (): Promise<void> => {
+    const params = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = params.get('access_token');
+    const legacyToken = takeLegacyToken();
 
     if (accessToken) {
-      setUserToken(accessToken);
-      // Clear hash to clean up URL
-      window.history.replaceState(null, '', window.location.pathname);
-      return accessToken;
+      // Clear the fragment first so the tokens don't linger in the address bar.
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      await adoptTokens(accessToken, params.get('refresh_token')).catch(() => false);
+    } else if (legacyToken) {
+      await adoptTokens(legacyToken).catch(() => false);
     }
-    return null;
   },
 
   signUp: async (params: { email: string; password: string; name?: string }) => {
-    const res = await fetch(`/api/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...params,
-        redirectTo: window.location.origin // Ensure validation links return to this app
-      })
+    const res = await postJson('/api/auth/signup', {
+      ...params,
+      redirectTo: window.location.origin, // Ensure validation links return to this app
     });
-
     const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Signup failed');
-
-    if (data.session) {
-      setUserToken(data.session.access_token);
-    }
     return data;
   },
 
   signIn: async (params: { email: string; password: string }) => {
-    const res = await fetch(`/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
-    });
-
+    const res = await postJson('/api/auth/login', params);
     const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Login failed');
-
-    if (data.session) {
-      setUserToken(data.session.access_token);
-    }
     return data;
   },
 
   signOut: async () => {
-    const token = getUserToken();
-    if (token) {
-      await fetch(`/api/auth/logout`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      }).catch(() => { });
-    }
-    clearUserToken();
+    await postJson('/api/auth/logout').catch(() => { });
   },
 
   getSession: async () => {
-    const token = getUserToken();
-    if (!token) return null;
-
     try {
-      const res = await fetch(`/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        clearUserToken();
-        return null;
-      }
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) return null;
       const data = await readJson(res);
-      return { user: data.user, token };
-    } catch (e) {
-      clearUserToken();
+      return data.user ? { user: data.user } : null;
+    } catch {
       return null;
     }
   },
@@ -100,51 +86,24 @@ export const authService = {
   // --- UPDATE METHODS ---
 
   updateProfile: async (updates: { name?: string }) => {
-    const token = getUserToken();
-    if (!token) throw new Error("Not authenticated");
-
-    const res = await fetch(`/api/auth/update`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(updates)
-    });
-
+    const res = await postJson('/api/auth/update', updates);
     const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Update failed');
     return data;
   },
 
   updatePassword: async (password: string) => {
-    const token = getUserToken();
-    if (!token) throw new Error("Not authenticated");
-
-    const res = await fetch(`/api/auth/update`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ password })
-    });
-
+    const res = await postJson('/api/auth/update', { password });
     const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Update failed');
     return data;
   },
 
   resetPassword: async (email: string) => {
-    const res = await fetch(`/api/auth/recover`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        redirectTo: window.location.origin + '/#reset-password' // Optional: redirect to specific view
-      })
+    const res = await postJson('/api/auth/recover', {
+      email,
+      redirectTo: window.location.origin + '/#reset-password', // Optional: redirect to specific view
     });
-
     const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to send recovery email');
     return data;
@@ -154,19 +113,11 @@ export const authService = {
 
   checkQuota: async (): Promise<{ allowed: boolean; remaining: number; nextReset?: number }> => {
     try {
-      const token = getUserToken();
-      if (!token) return { allowed: false, remaining: 0 };
-
-      const res = await fetch(`/api/quota`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
+      const res = await fetch('/api/quota');
       if (!res.ok) return { allowed: false, remaining: 0 };
       return await readJson(res);
-    } catch (e) {
+    } catch {
       return { allowed: false, remaining: 0 };
     }
   },
-
-  getToken: getUserToken
 };

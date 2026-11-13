@@ -10,8 +10,16 @@ const apiUnreachable = (status: number) =>
     ? `API not reachable (HTTP ${status}). Run the app with \`npx vercel dev\`, not \`npm run dev\`.`
     : `Server not reachable (HTTP ${status}). Please try again shortly.`;
 
+// Fired when a signed-in API call finds the session gone (expired, revoked, or
+// signed out elsewhere). App listens for it and returns to the home page.
+// /api/auth/* is excluded: a 401 there means wrong credentials, not lost session.
+export const SESSION_EXPIRED_EVENT = 'nanorewind:session-expired';
+
 // Parses a JSON body. Throws a readable error if the body isn't JSON.
 export const readJson = async <T = any>(res: Response): Promise<T> => {
+  if (res.status === 401 && !new URL(res.url, window.location.href).pathname.startsWith('/api/auth/')) {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
   const text = await res.text();
   if (text) {
     try {

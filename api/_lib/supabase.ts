@@ -22,10 +22,16 @@ export const getAuthConfig = () => {
 
 // Unscoped client used for auth operations (signup/login/etc).
 // Lazily created so a missing env var surfaces as a handled error, not a module-load crash.
+// It must not keep sessions: one instance serves many users' requests on a warm
+// serverless instance, so a stored session could leak from one user to the next.
 let _global: ReturnType<typeof createClient> | null = null;
 export const getGlobalSupabase = () => {
   assertConfig();
-  if (!_global) _global = createClient(supabaseUrl!, supabaseAnonKey!);
+  if (!_global) {
+    _global = createClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+  }
   return _global;
 };
 

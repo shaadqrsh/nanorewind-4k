@@ -12,15 +12,12 @@ export const restoreImage = async (
   mimeType: string,
   originalName: string,
   options: { process: string; chiaroscuro: boolean; matte: boolean },
-  token: string
 ): Promise<RestoreResult> => {
   try {
+    // The session cookie authenticates this request.
     const response = await fetch(`/api/restore`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         image: base64Image,
         mimeType: mimeType,

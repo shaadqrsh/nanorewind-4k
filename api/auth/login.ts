@@ -4,9 +4,14 @@ import { withRateLimit } from '../_lib/rateLimit.js';
 import { ensureProfileExists } from '../_lib/profile.js';
 import { publicAuthResult } from '../_lib/session.js';
 import { isEmail, isPasswordInput } from '../_lib/validate.js';
+import { setSessionCookies } from '../_lib/cookies.js';
+import { blockCrossSite } from '../_lib/auth.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Blocks login CSRF (another site signing a visitor into the attacker's account).
+  if (!blockCrossSite(req, res)) return;
 
   const { email, password } = req.body || {};
   if (!isEmail(email) || !isPasswordInput(password)) {
@@ -22,6 +27,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     // same project "migrate" purely by logging in.
     if (data.session) {
       await ensureProfileExists(data.session);
+      setSessionCookies(res, data.session);
     }
 
     res.json(publicAuthResult(data.session, data.user));

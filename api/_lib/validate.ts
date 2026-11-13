@@ -31,6 +31,18 @@ const requestOrigin = (req: VercelRequest): string => {
   return `${local ? 'http' : 'https'}://${host}`;
 };
 
+// CSRF guard for requests that change state. The session cookies are already
+// SameSite=Strict; this is a second, server-side layer. Browsers send Origin on
+// every POST/DELETE, so it must be this site. With no Origin, fall back to
+// Sec-Fetch-Site. Requests with neither come from non-browser clients, which
+// don't carry a user's cookies.
+export const isSameOriginRequest = (req: VercelRequest): boolean => {
+  const origin = req.headers.origin;
+  if (typeof origin === 'string') return origin === requestOrigin(req);
+  const site = req.headers['sec-fetch-site'];
+  return site === undefined || site === 'same-origin' || site === 'none';
+};
+
 // Email links (confirm, reset) may only point back at this site. Anything else
 // is dropped and Supabase falls back to the project's Site URL.
 export const sameOriginUrl = (req: VercelRequest, value: unknown): string | undefined => {
