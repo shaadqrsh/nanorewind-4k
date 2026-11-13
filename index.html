@@ -68,7 +68,7 @@
               'grain': 'grain 0.6s steps(4) infinite',
               'rise': 'rise 0.7s cubic-bezier(0.2,0.7,0.2,1) both',
               'safelight-pulse': 'safelightPulse 4s ease-in-out infinite',
-              'scan': 'scan 2.4s ease-in-out infinite',
+              'scan': 'scan 3.6s ease-in-out infinite',
             },
             keyframes: {
               develop: {
@@ -84,9 +84,11 @@
                 '0%, 100%': { opacity: '0.5' },
                 '50%':       { opacity: '0.85' },
               },
+              // translateY % is relative to the band (1/3 of the plate's height),
+              // so -100% → 300% sweeps from just above the top to just below the bottom.
               scan: {
                 '0%, 100%': { transform: 'translateY(-100%)' },
-                '50%':       { transform: 'translateY(100%)' },
+                '50%':       { transform: 'translateY(300%)' },
               },
             },
           }
