@@ -1,4 +1,5 @@
 // API runs as same-origin Vercel serverless functions under /api.
+import { readJson } from './http';
 
 // Token Management
 const TOKEN_KEY = 'nanorewind_auth_token';
@@ -40,7 +41,7 @@ export const authService = {
       })
     });
 
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Signup failed');
 
     if (data.session) {
@@ -56,7 +57,7 @@ export const authService = {
       body: JSON.stringify(params)
     });
 
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Login failed');
 
     if (data.session) {
@@ -88,7 +89,7 @@ export const authService = {
         clearUserToken();
         return null;
       }
-      const data = await res.json();
+      const data = await readJson(res);
       return { user: data.user, token };
     } catch (e) {
       clearUserToken();
@@ -111,7 +112,7 @@ export const authService = {
       body: JSON.stringify(updates)
     });
 
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Update failed');
     return data;
   },
@@ -129,7 +130,7 @@ export const authService = {
       body: JSON.stringify({ password })
     });
 
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Update failed');
     return data;
   },
@@ -144,7 +145,7 @@ export const authService = {
       })
     });
 
-    const data = await res.json();
+    const data = await readJson(res);
     if (!res.ok) throw new Error(data.error || 'Failed to send recovery email');
     return data;
   },
@@ -161,7 +162,7 @@ export const authService = {
       });
 
       if (!res.ok) return { allowed: false, remaining: 0 };
-      return await res.json();
+      return await readJson(res);
     } catch (e) {
       return { allowed: false, remaining: 0 };
     }

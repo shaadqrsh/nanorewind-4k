@@ -26,6 +26,7 @@ Restore old, scratched, or blurry photos to crisp 4K in seconds.
 - 🎞️ **Developer processes** — render results in distinct photographic styles: Standard, Silver Gelatin (B&W), Albumen (sepia), Cyanotype, Lumière Autochrome, and Kodachrome 64.
 - 🌗 **Atmospheric modifiers** — optional Chiaroscuro (deeper dramatic shadows) and Matte Emulsion (softened vintage-paper highlights).
 - 🔍 **Before / after compare** — drag-to-reveal slider to inspect the restoration against the original.
+- 🗄️ **Archive** — every restoration is saved to a private library automatically. Reopen any of them in the compare view, or download, share or delete them.
 - 🎟️ **Daily free credits** — 3 restorations/day, tracked in Supabase.
 - 🔒 **Secure by design** — all auth and database logic runs server-side; no secrets in the browser.
 
@@ -36,6 +37,7 @@ Restore old, scratched, or blurry photos to crisp 4K in seconds.
 | **Frontend** | React 19 + Vite, deployed on Vercel |
 | **Backend** | Vercel Serverless Functions (Node.js / TypeScript) under `/api`, same-origin with the frontend |
 | **Database** | Supabase (Postgres) with strict RLS and RPC-based credit deduction |
+| **Storage** | Private Supabase Storage bucket (`nanorewind-plates`), per-user folders, signed URLs |
 | **AI** | Google Gemini image model |
 
 ## 🚀 Local Development
@@ -63,12 +65,12 @@ The landing page features an auto-sweeping before/after demo. Swap in your own e
 ### 1. Database (Supabase)
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Run the SQL from [`backend/supabase_schema.sql`](backend/supabase_schema.sql) in the SQL Editor.
+2. Run the SQL from [`backend/supabase_schema.sql`](backend/supabase_schema.sql) in the SQL Editor. It also creates the private `nanorewind-plates` storage bucket and its policies. The script is idempotent, so on an existing project you can re-run the whole file to add the archive.
 
 ### 2. App + API (Vercel)
 
 1. Import the repository to Vercel — it auto-detects Vite, and the `/api` folder deploys as serverless functions.
-2. Under **Settings → Environment Variables** (Production + Preview), set `GEMINI_API_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY`.
+2. Under **Settings → Environment Variables**, set `GEMINI_API_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` for Production and Preview. Tick **Development** too, so `vercel env pull` can fetch them for local `vercel dev`. Otherwise the API fails with "missing SUPABASE_URL or SUPABASE_ANON_KEY".
 
 > [!IMPORTANT]
 > These are server-side variables for the functions — do **not** prefix them with `VITE_`, which would expose them to the browser bundle.
