@@ -204,3 +204,6 @@ USING (
   bucket_id = 'nanorewind-plates'
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
 );
+
+-- Make the API see new tables immediately (avoids PGRST205 "not in the schema cache").
+NOTIFY pgrst, 'reload schema';

@@ -29,9 +29,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return await remove(ctx, req, res);
   } catch (err) {
     console.error(`Restorations ${req.method} error:`, err);
-    res.status(500).json({ error: 'Archive request failed' });
+    res.status(500).json({
+      error: isMissingSetup(err)
+        ? 'Archive is not set up yet: run backend/supabase_schema.sql in Supabase'
+        : 'Archive request failed',
+    });
   }
 }
+
+// Missing table (PostgREST PGRST205 / Postgres 42P01) or missing storage bucket.
+const isMissingSetup = (err: unknown): boolean => {
+  const e = err as { code?: string; message?: string };
+  return e?.code === 'PGRST205' || e?.code === '42P01' || /bucket not found/i.test(e?.message ?? '');
+};
 
 async function list(ctx: AuthedContext, req: VercelRequest, res: VercelResponse) {
   const { before } = req.query;
