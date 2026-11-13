@@ -32,9 +32,17 @@ export const readJson = async <T = any>(res: Response): Promise<T> => {
   throw new Error(apiUnreachable(res.status));
 };
 
+// An API error that keeps the HTTP status, so callers can react to it
+// (402 out of credits, 429 rate limited, ...).
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 // Parses the body and throws the API's `error` message on non-2xx responses.
 export const expectJson = async <T = any>(res: Response, fallback: string): Promise<T> => {
   const data = await readJson<any>(res);
-  if (!res.ok) throw new Error(data?.error || `${fallback} (HTTP ${res.status})`);
+  if (!res.ok) throw new ApiError(data?.error || `${fallback} (HTTP ${res.status})`, res.status);
   return data;
 };

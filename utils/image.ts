@@ -1,3 +1,5 @@
+import type { ImageFile } from '../types';
+
 // Archived images are served from Supabase Storage, a different origin, where
 // browsers ignore <a download>. Fetching into a same-origin blob URL makes
 // downloads work for remote URLs and data URLs alike.
@@ -49,4 +51,46 @@ export const shareImage = async (url: string, filename: string): Promise<ShareOu
 export const restoredFilename = (originalName: string | null): string => {
   const base = (originalName ?? '').replace(/\.[^./\\]+$/, '') || 'photo';
   return `${base}_restored.png`;
+};
+
+// --- Preparing uploads ---
+
+// Vercel rejects request bodies over 4.5 MB, and base64 adds a third, so files
+// above ~3 MB would fail. Larger photos are shrunk in the browser first. The
+// restoration comes back at about 1K, so 3072px keeps plenty of detail.
+const MAX_UPLOAD_BYTES = 3 * 1024 * 1024;
+const MAX_SIDE_PX = 3072;
+export const UPLOAD_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+const readAsDataUrl = (file: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Could not read this file.'));
+    reader.readAsDataURL(file);
+  });
+
+const dataUrlBytes = (dataUrl: string) => Math.ceil(((dataUrl.length - dataUrl.indexOf(',') - 1) * 3) / 4);
+
+export const prepareUpload = async (file: File): Promise<ImageFile> => {
+  if (!UPLOAD_TYPES.includes(file.type)) throw new Error('Use a JPG, PNG or WebP photo.');
+  if (file.size <= MAX_UPLOAD_BYTES) {
+    return { previewUrl: await readAsDataUrl(file), name: file.name, mimeType: file.type };
+  }
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_SIDE_PX / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  for (const quality of [0.9, 0.8, 0.7]) {
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    if (dataUrlBytes(dataUrl) <= MAX_UPLOAD_BYTES) {
+      return { previewUrl: dataUrl, name: file.name, mimeType: 'image/jpeg' };
+    }
+  }
+  throw new Error('This photo is too large to upload. Try a smaller copy.');
 };

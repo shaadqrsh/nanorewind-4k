@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from './_lib/vercel.js';
 import { requireUser, AuthedContext } from './_lib/auth.js';
 import {
@@ -8,16 +9,17 @@ import {
 } from './_lib/archive.js';
 
 // GET    /api/restorations[?before=<createdAt>]  → newest-first page of the caller's archive
+// PATCH  /api/restorations?id=<uuid>  { shared }  → start or stop a public share link
 // DELETE /api/restorations?id=<uuid>              → remove one restoration and its files
 //
-// One function serves both methods to stay inside Vercel Hobby's 12-function limit.
+// One function serves all methods to stay inside Vercel Hobby's 12-function limit.
 
 const PAGE_SIZE = 48;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET' && req.method !== 'DELETE') {
-    res.setHeader('Allow', 'GET, DELETE');
+  if (req.method !== 'GET' && req.method !== 'PATCH' && req.method !== 'DELETE') {
+    res.setHeader('Allow', 'GET, PATCH, DELETE');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
@@ -26,6 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'GET') return await list(ctx, req, res);
+    if (req.method === 'PATCH') return await setShared(ctx, req, res);
     return await remove(ctx, req, res);
   } catch (err) {
     console.error(`Restorations ${req.method} error:`, err);
@@ -94,4 +97,23 @@ async function remove(ctx: AuthedContext, req: VercelRequest, res: VercelRespons
   if (deleteError) throw deleteError;
 
   res.json({ success: true });
+}
+
+// Share links are 16 random URL-safe characters (96 bits), made here rather
+// than in the database. Sharing again always makes a new link.
+async function setShared(ctx: AuthedContext, req: VercelRequest, res: VercelResponse) {
+  const { id } = req.query;
+  if (typeof id !== 'string' || !UUID_RE.test(id)) {
+    return res.status(400).json({ error: 'Invalid restoration id' });
+  }
+  const shared = req.body?.shared;
+  if (typeof shared !== 'boolean') return res.status(400).json({ error: 'Expected { shared: true | false }' });
+
+  const shareId = shared ? randomBytes(12).toString('base64url') : null;
+  const { error } = await ctx.supabase.rpc('set_restoration_share', { p_id: id, p_share_id: shareId });
+  if (error) {
+    if (error.code === 'P0002') return res.status(404).json({ error: 'Restoration not found' });
+    throw error;
+  }
+  res.json({ shareId });
 }

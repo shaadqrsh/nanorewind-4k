@@ -16,6 +16,17 @@ export const archiveService = {
     return expectJson<ArchivePage>(res, 'Could not load your archive');
   },
 
+  // Turns the public link on or off. Returns the new share id, or null when off.
+  setShared: async (id: string, shared: boolean): Promise<string | null> => {
+    const res = await fetch(`/api/restorations?id=${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shared }),
+    });
+    const data = await expectJson<{ shareId: string | null }>(res, 'Could not change sharing');
+    return data.shareId;
+  },
+
   remove: async (id: string): Promise<void> => {
     const res = await fetch(`/api/restorations?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     await expectJson(res, 'Could not delete this restoration');

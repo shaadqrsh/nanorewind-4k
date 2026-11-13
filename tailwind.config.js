@@ -58,6 +58,7 @@ export default {
         'rise': 'rise 0.7s cubic-bezier(0.2,0.7,0.2,1) both',
         'safelight-pulse': 'safelightPulse 4s ease-in-out infinite',
         'scan': 'scan 3.6s ease-in-out infinite',
+        'progress': 'progress 1.4s ease-in-out infinite',
       },
       keyframes: {
         develop: {
@@ -78,6 +79,12 @@ export default {
         scan: {
           '0%, 100%': { transform: 'translateY(-100%)' },
           '50%':       { transform: 'translateY(300%)' },
+        },
+        // Indeterminate bar for a photo that's restoring (a third of the width,
+        // sliding fully across).
+        progress: {
+          '0%':   { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(300%)' },
         },
       },
     }

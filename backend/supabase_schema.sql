@@ -300,5 +300,102 @@ $$;
 REVOKE ALL ON FUNCTION "nanorewind-4k".hit_rate_limit(TEXT, INT, INT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION "nanorewind-4k".hit_rate_limit(TEXT, INT, INT) TO anon, authenticated, service_role;
 
+-- --- SHARE LINKS ---
+
+-- A restoration is public only while it has a share_id: a random, unguessable
+-- string the API generates. Stopping sharing sets it back to NULL, so old links
+-- stop working, and sharing again creates a new link.
+ALTER TABLE "nanorewind-4k".restorations ADD COLUMN IF NOT EXISTS share_id TEXT;
+ALTER TABLE "nanorewind-4k".restorations ADD COLUMN IF NOT EXISTS shared_at TIMESTAMP WITH TIME ZONE;
+
+CREATE UNIQUE INDEX IF NOT EXISTS restorations_share_id_idx
+  ON "nanorewind-4k".restorations (share_id) WHERE share_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS restorations_shared_original_idx
+  ON "nanorewind-4k".restorations (original_path) WHERE share_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS restorations_shared_restored_idx
+  ON "nanorewind-4k".restorations (restored_path) WHERE share_id IS NOT NULL;
+
+-- Start or stop sharing one of your own restorations. Rows have no UPDATE
+-- grant, so this is the only way share_id can change.
+CREATE OR REPLACE FUNCTION "nanorewind-4k".set_restoration_share(p_id UUID, p_share_id TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = "nanorewind-4k", public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'not authenticated' USING ERRCODE = '28000';
+  END IF;
+  IF p_share_id IS NOT NULL AND p_share_id !~ '^[A-Za-z0-9_-]{16,64}$' THEN
+    RAISE EXCEPTION 'invalid share id' USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE restorations
+  SET share_id = p_share_id,
+      shared_at = CASE WHEN p_share_id IS NULL THEN NULL ELSE now() END
+  WHERE id = p_id AND user_id = auth.uid();
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'restoration not found' USING ERRCODE = 'P0002';
+  END IF;
+  RETURN p_share_id;
+END;
+$$;
+REVOKE ALL ON FUNCTION "nanorewind-4k".set_restoration_share(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION "nanorewind-4k".set_restoration_share(UUID, TEXT) TO authenticated, service_role;
+
+-- What a public share page may know: the two images and the style. Not the
+-- owner, and not the original filename (it can contain people's names).
+CREATE OR REPLACE FUNCTION "nanorewind-4k".get_shared_restoration(p_share_id TEXT)
+RETURNS JSONB
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = "nanorewind-4k", public
+AS $$
+  SELECT jsonb_build_object(
+    'original_path', original_path,
+    'restored_path', restored_path,
+    'process', process,
+    'chiaroscuro', chiaroscuro,
+    'matte', matte,
+    'created_at', created_at
+  )
+  FROM restorations
+  WHERE p_share_id IS NOT NULL AND share_id = p_share_id;
+$$;
+REVOKE ALL ON FUNCTION "nanorewind-4k".get_shared_restoration(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION "nanorewind-4k".get_shared_restoration(TEXT) TO anon, authenticated, service_role;
+
+-- Used by the storage rule below: is this file part of a shared restoration?
+CREATE OR REPLACE FUNCTION "nanorewind-4k".is_shared_plate(p_name TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = "nanorewind-4k", public
+COST 1000 -- tells the planner to check the cheap bucket_id condition first
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM restorations
+    WHERE share_id IS NOT NULL AND (original_path = p_name OR restored_path = p_name)
+  );
+$$;
+REVOKE ALL ON FUNCTION "nanorewind-4k".is_shared_plate(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION "nanorewind-4k".is_shared_plate(TEXT) TO anon, service_role;
+
+-- Anonymous visitors (via the share page's API) may read files of shared
+-- restorations, and nothing else. Limited to the anon role, so it doesn't
+-- touch queries made by signed-in users of this or the other app.
+DROP POLICY IF EXISTS "nanorewind: read shared plates" ON storage.objects;
+CREATE POLICY "nanorewind: read shared plates"
+ON storage.objects
+FOR SELECT TO anon
+USING (
+  bucket_id = 'nanorewind-plates'
+  AND "nanorewind-4k".is_shared_plate(name)
+);
+
 -- Make the API see new tables immediately (avoids PGRST205 "not in the schema cache").
 NOTIFY pgrst, 'reload schema';

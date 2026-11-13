@@ -5,6 +5,9 @@
       "maxDuration": 60
     }
   },
+  "rewrites": [
+    { "source": "/share/:id", "destination": "/api/share?id=:id" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -1,23 +1,28 @@
 import React, { useCallback, useState } from 'react';
 import { Plus, AlertCircle } from 'lucide-react';
+import { UPLOAD_TYPES } from '../utils/image';
 
 interface DropzoneProps {
-  onFileSelect: (file: File) => void;
+  onFilesSelect: (files: File[]) => void;
 }
 
-export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
+export const MAX_BATCH = 10;
+
+export const Dropzone: React.FC<DropzoneProps> = ({ onFilesSelect }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const validateFile = (file: File): boolean => {
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      setError("JPG, PNG or WebP only.");
-      return false;
-    }
-    setError(null);
-    return true;
-  };
+  // Keeps the usable photos and explains anything that was left out.
+  const accept = useCallback((list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const all = Array.from(list);
+    const images = all.filter(f => UPLOAD_TYPES.includes(f.type));
+    const kept = images.slice(0, MAX_BATCH);
+    if (images.length < all.length) setError('Some files were skipped: only JPG, PNG or WebP photos work.');
+    else if (kept.length < images.length) setError(`Up to ${MAX_BATCH} photos at a time. The first ${MAX_BATCH} were added.`);
+    else setError(null);
+    if (kept.length > 0) onFilesSelect(kept);
+  }, [onFilesSelect]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -32,18 +37,13 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      if (validateFile(file)) onFileSelect(file);
-    }
-  }, [onFileSelect]);
+    accept(e.dataTransfer.files);
+  }, [accept]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      if (validateFile(file)) onFileSelect(file);
-    }
-  }, [onFileSelect]);
+    accept(e.target.files);
+    e.target.value = ''; // so choosing the same files again still fires
+  }, [accept]);
 
   return (
     <div className="flex flex-col gap-1.5 h-full">
@@ -77,13 +77,14 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
           <p className="font-mono text-[10px] uppercase tracking-widest text-ink-300">
             Click to upload
           </p>
-          <p className="mt-0.5 text-[10px] text-ink-500">or drag a photo here (JPG, PNG or WebP)</p>
+          <p className="mt-0.5 text-[10px] text-ink-500">or drag photos here, up to {MAX_BATCH} at once</p>
         </div>
 
         <input
           type="file"
           className="hidden"
           accept="image/png, image/jpeg, image/webp"
+          multiple
           onChange={handleInputChange}
         />
       </label>

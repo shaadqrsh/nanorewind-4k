@@ -9,10 +9,11 @@ This document serves as a guide for implementing new features and enhancements f
 1. [x] **[Phase 1] The Plate Archive (Restoration Library)**
 2. [x] **[Phase 2] The Atelier Entrance (Landing Page)**
 3. [x] **[Phase 3] API Rate-Limiting Decorator** (plus a security audit)
-4. [ ] **[Phase 4] Suggested Enhancements (Sharing, Fine-Tuning, Batching)**
+4. [ ] **[Phase 4] Suggested Enhancements (Sharing, Batching)** — built, awaiting test
 5. [ ] **[Phase 5] UI Redesign (Anti-Pattern Checklist)**
 6. [ ] **[Phase 6] Compliance, SEO & Accessibility**
 7. [ ] **[Phase 7] Paid Features (Stripe & Custom Domain)**
+8. [ ] **[Phase 8] Fine-Tuning Treatment Drawer** (moved from the suggested enhancements)
 
 ---
 
@@ -92,14 +93,19 @@ This document serves as a guide for implementing new features and enhancements f
 ### 🌟 4. Public Share Links & Galleries
 - **Concept:** Let users "publish" a restored photo. Generates a public shareable URL (e.g. `/share/[id]`) showing the before/after slider view with customized SEO meta-tags.
 - **Why:** Encourages organic virality. When users show off their restored family photos, they share the link, bringing new traffic to the app.
-
-### 🌟 5. Fine-Tuning Treatment Drawer (Post-Restoration Adjustments)
-- **Concept:** A drawer with CSS filters and AI prompt modifiers.
-- **Why:** Sometimes the AI gets color or brightness slightly wrong. Allowing users to tweak brightness, contrast, exposure, or apply a "Vintage Sepia" or "Black & White" filter directly in the browser after restoration adds high utility.
+- [x] **Share links** — built, awaiting test:
+  - "Share" in the archive and on the result opens a dialog to create, copy or turn off a link. Each link is 16 random characters; turning it off kills it, and sharing again makes a new one.
+  - `/share/<id>` is a server-rendered page (`api/share.ts`, with `public/share-viewer.*`) with a before/after slider and link-preview tags. It's `noindex`, sends no `Referer`, and never shows the owner or the file name.
+  - Database: `share_id` column plus `set_restoration_share`, `get_shared_restoration` and an anon-only storage rule for shared files only. Image links are 10-minute signed URLs.
+- [ ] **Public gallery:** not built on purpose. These are often family photos, so links stay unlisted.
 
 ### 🌟 6. Batch Restoration Queue
 - **Concept:** Drag and drop multiple photos into the tray. They queue up and process sequentially, updating a progress bar for each "plate".
 - **Why:** Dramatically improves the UX for users who want to restore entire albums.
+- [x] **Batch queue** — built, awaiting test:
+  - Drop or pick up to 10 photos. They restore one at a time with a status per photo (waiting, restoring with a progress bar, done, failed, no credits left), and each result goes to the archive.
+  - Credits cap it: when they run out, the rest are marked "No credits left" and the next run retries them. "Stop after this photo" pauses a batch.
+  - Photos over 3 MB are shrunk in the browser (longest side 3072px) to fit Vercel's 4.5 MB request limit. This also fixes single uploads of large phone photos, which used to fail.
 
 ---
 
@@ -216,3 +222,10 @@ This document serves as a guide for implementing new features and enhancements f
 #### **Custom Domain**
 - [ ] Buy a custom domain and connect it in Vercel
 - [ ] Update canonical, `og:url`, `og:image` and sitemap URLs from `nanorewind-4k.vercel.app` to the new domain
+
+---
+
+### 10. 🎚️ Fine-Tuning Treatment Drawer (Post-Restoration Adjustments)
+*Moved here from the suggested enhancements, to come after the paid features.*
+- **Concept:** A drawer with CSS filters and AI prompt modifiers.
+- **Why:** Sometimes the AI gets color or brightness slightly wrong. Allowing users to tweak brightness, contrast, exposure, or apply a "Vintage Sepia" or "Black & White" filter directly in the browser after restoration adds high utility.

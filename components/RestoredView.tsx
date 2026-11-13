@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Download, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, Trash2, AlertTriangle, X, Share2 } from 'lucide-react';
 import { RestorationStatus } from '../types';
 import { Button } from './Button';
 import { downloadImage, restoredFilename } from '../utils/image';
@@ -11,11 +11,12 @@ interface RestoredViewProps {
   status: RestorationStatus;
   archived: boolean;   // true when this result is saved in the archive
   onRemove: () => void;
+  onShare?: () => void;  // shown when the result is in the archive
 }
 
 type ViewMode = 'original' | 'restored' | 'side-by-side' | 'slider';
 
-export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, originalName, restoredUrl, status, archived, onRemove }) => {
+export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, originalName, restoredUrl, status, archived, onRemove, onShare }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('slider');
   const [sliderPos, setSliderPos] = useState(50);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -158,6 +159,15 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
         </div>
 
         <div className="flex items-center gap-2">
+          {onShare && (
+            <button
+              onClick={onShare}
+              title="Share"
+              className="p-2.5 text-ink-400 hover:text-amber-400 border border-ink-700 hover:border-amber-500/40 transition-colors"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          )}
           {/* An archived result is safe to close; an unsaved one asks first. */}
           <button
             onClick={() => (archived ? onRemove() : setShowDeleteConfirm(true))}

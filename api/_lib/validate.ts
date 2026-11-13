@@ -25,7 +25,7 @@ export const cleanName = (v: unknown): string | null => {
   return name || null;
 };
 
-const requestOrigin = (req: VercelRequest): string => {
+export const requestOrigin = (req: VercelRequest): string => {
   const host = req.headers.host || '';
   const local = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host);
   return `${local ? 'http' : 'https'}://${host}`;

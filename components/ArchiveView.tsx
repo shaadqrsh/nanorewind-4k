@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { X, Archive, Download, Share2, Trash2, AlertCircle, AlertTriangle, Loader2, ImageOff, RotateCw } from 'lucide-react';
+import { X, Archive, Download, Share2, Trash2, AlertCircle, AlertTriangle, Loader2, ImageOff, RotateCw, Link2 } from 'lucide-react';
 import { Restoration } from '../types';
 import { ArchiveState } from '../hooks/useArchive';
 import { PROCESSES, MODIFIERS } from './PromptSelector';
 import { Button } from './Button';
-import { downloadImage, shareImage, restoredFilename } from '../utils/image';
+import { downloadImage, restoredFilename } from '../utils/image';
 
 interface ArchiveViewProps {
   isOpen: boolean;
@@ -14,9 +14,10 @@ interface ArchiveViewProps {
   canSelect: boolean;
   onSelect: (r: Restoration) => void;
   onDelete: (id: string) => Promise<void>;
+  onShare: (r: Restoration) => void;
 }
 
-type Busy = { id: string; action: 'download' | 'share' } | null;
+type Busy = { id: string; action: 'download' } | null;
 type Notice = { tone: 'ok' | 'error'; text: string } | null;
 
 const processOf = (r: Restoration) => PROCESSES.find(p => p.key === r.process) ?? PROCESSES[0];
@@ -31,7 +32,7 @@ const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 export const ArchiveView: React.FC<ArchiveViewProps> = ({
-  isOpen, onClose, archive, activeId, canSelect, onSelect, onDelete,
+  isOpen, onClose, archive, activeId, canSelect, onSelect, onDelete, onShare,
 }) => {
   const [busy, setBusy] = useState<Busy>(null);
   const [notice, setNotice] = useState<Notice>(null);
@@ -61,17 +62,11 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
 
   const { items, status, error, hasMore, isLoadingMore } = archive;
 
-  const runAction = async (r: Restoration, action: 'download' | 'share') => {
+  const runAction = async (r: Restoration, action: 'download') => {
     if (!r.restoredUrl || busy) return;
     setBusy({ id: r.id, action });
     try {
-      const filename = restoredFilename(r.originalName);
-      if (action === 'download') {
-        await downloadImage(r.restoredUrl, filename);
-      } else {
-        const outcome = await shareImage(r.restoredUrl, filename);
-        if (outcome === 'copied') setNotice({ tone: 'ok', text: 'Image copied to clipboard' });
-      }
+      await downloadImage(r.restoredUrl, restoredFilename(r.originalName));
     } catch (err) {
       setNotice({ tone: 'error', text: (err as Error).message || 'Something went wrong' });
     } finally {
@@ -224,11 +219,18 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
                             className="absolute top-1.5 left-1.5 font-mono text-[9px] tracking-wider px-1.5 py-0.5 bg-ink-950/80 border border-ink-600 text-ink-300">
                             {process.code}
                           </span>
-                          {isActive && (
-                            <span className="absolute top-8 left-1.5 font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 bg-amber-500 text-ink-950">
-                              Viewing
-                            </span>
-                          )}
+                          <div className="absolute top-8 left-1.5 flex flex-col items-start gap-1">
+                            {isActive && (
+                              <span className="font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 bg-amber-500 text-ink-950">
+                                Viewing
+                              </span>
+                            )}
+                            {r.shareId && (
+                              <span title="Has a public link" className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-widest px-1.5 py-0.5 bg-ink-950/85 border border-patina-500/50 text-patina-400">
+                                <Link2 className="w-2.5 h-2.5" /> Shared
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <p className="mt-2.5 text-[12px] font-medium text-ink-200 truncate">{displayName(r)}</p>
@@ -244,8 +246,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
                           <>
                             <ActionButton label="Download" onClick={() => runAction(r, 'download')}
                               busy={busy?.id === r.id && busy.action === 'download'} Icon={Download} />
-                            <ActionButton label="Share" onClick={() => runAction(r, 'share')}
-                              busy={busy?.id === r.id && busy.action === 'share'} Icon={Share2} />
+                            <ActionButton label="Share" onClick={() => onShare(r)} Icon={Share2} />
                           </>
                         )}
                         <ActionButton label="Delete" tone="danger" Icon={Trash2}

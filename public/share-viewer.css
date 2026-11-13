@@ -1,0 +1,125 @@
+/* Public share page (/share/<id>). Standalone: the app's bundle isn't loaded here. */
+:root {
+  color-scheme: dark;
+  --ink-950: #0c0a09;
+  --ink-900: #161311;
+  --ink-800: #241f1b;
+  --ink-700: #332b25;
+  --ink-500: #6b5d50;
+  --ink-400: #998a7b;
+  --ink-300: #c4b8a9;
+  --ink-100: #f2eee7;
+  --amber-500: #e0a458;
+  --amber-400: #e6b06a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--ink-950) radial-gradient(120% 80% at 50% -10%, rgba(224, 164, 88, 0.08), transparent 55%);
+  color: var(--ink-300);
+  font: 15px/1.6 Geist, ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.bar {
+  border-bottom: 1px solid var(--ink-800);
+  padding: 18px 20px;
+}
+.brand {
+  font: 600 18px Fraunces, Georgia, serif;
+  color: var(--ink-100);
+  text-decoration: none;
+}
+.brand:hover { color: var(--amber-400); }
+
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font: 300 clamp(28px, 5vw, 40px)/1.1 Fraunces, Georgia, serif;
+  color: var(--ink-100);
+}
+.meta { margin: 0 0 24px; color: var(--ink-400); }
+
+.compare {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  border: 1px solid var(--ink-700);
+  background: var(--ink-900);
+  overflow: hidden;
+  user-select: none;
+  touch-action: pan-y;
+  cursor: ew-resize;
+  --pos: 50%;
+}
+.compare:focus-visible { outline: 2px solid var(--amber-500); outline-offset: 3px; }
+/* The restored photo sets the frame's size; tall photos are capped to the screen. */
+.compare .after { display: block; max-width: 100%; max-height: 75vh; width: auto; height: auto; }
+.compare .before {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--pos)) 0 0);
+}
+.compare .before img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.compare .handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--pos);
+  width: 2px;
+  margin-left: -1px;
+  background: var(--amber-500);
+  box-shadow: 0 0 12px rgba(224, 164, 88, 0.7);
+  pointer-events: none;
+}
+.compare .handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--amber-500);
+  background: var(--ink-950);
+}
+.label {
+  position: absolute;
+  bottom: 12px;
+  padding: 3px 8px;
+  font: 500 10px "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.label-before { left: 12px; background: rgba(12, 10, 9, 0.75); color: var(--ink-100); }
+.label-after { right: 12px; background: var(--amber-500); color: var(--ink-950); }
+
+/* Without the script, show just the restored photo. */
+.compare:not(.ready) .before,
+.compare:not(.ready) .handle,
+.compare:not(.ready) .label-before { display: none; }
+
+.hint { margin: 12px 0 32px; font-size: 13px; color: var(--ink-400); }
+
+.cta {
+  display: inline-block;
+  padding: 12px 22px;
+  background: var(--amber-500);
+  color: var(--ink-950);
+  font: 500 12px "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.cta:hover { background: var(--amber-400); }
+.cta:focus-visible { outline: 2px solid var(--amber-500); outline-offset: 3px; }

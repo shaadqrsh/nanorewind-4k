@@ -11,7 +11,7 @@ export const PLATES_BUCKET = 'nanorewind-plates';
 const SIGNED_URL_TTL_S = 6 * 60 * 60;
 
 export const RESTORATION_COLUMNS =
-  'id, created_at, original_path, restored_path, original_name, process, chiaroscuro, matte';
+  'id, created_at, original_path, restored_path, original_name, process, chiaroscuro, matte, share_id';
 
 export interface RestorationRow {
   id: string;
@@ -22,6 +22,7 @@ export interface RestorationRow {
   process: string;
   chiaroscuro: boolean;
   matte: boolean;
+  share_id: string | null;
 }
 
 // The client-facing shape: storage paths swapped for signed URLs.
@@ -34,6 +35,7 @@ export interface RestorationDTO {
   matte: boolean;
   originalUrl: string | null;
   restoredUrl: string | null;
+  shareId: string | null; // set while the restoration has a public link
 }
 
 const EXTENSIONS: Record<string, string> = {
@@ -66,6 +68,7 @@ export async function signRestorations(
     matte: r.matte,
     originalUrl: urlByPath.get(r.original_path) ?? null,
     restoredUrl: urlByPath.get(r.restored_path) ?? null,
+    shareId: r.share_id ?? null,
   }));
 }
 

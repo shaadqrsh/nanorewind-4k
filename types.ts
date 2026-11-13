@@ -24,4 +24,7 @@ export interface Restoration {
   matte: boolean;
   originalUrl: string | null;
   restoredUrl: string | null;
+  shareId: string | null; // set while there's a public link at /share/<shareId>
 }
+
+export const shareUrl = (shareId: string) => `${window.location.origin}/share/${shareId}`;

@@ -19,6 +19,7 @@ export interface ArchiveState {
   loadMore: () => void;
   add: (r: Restoration) => void;
   remove: (id: string) => Promise<void>;
+  setShared: (id: string, shared: boolean) => Promise<string | null>;
   reset: () => void;
 }
 
@@ -79,6 +80,12 @@ export function useArchive(): ArchiveState {
     setItems(prev => prev.filter(p => p.id !== id));
   }, []);
 
+  const setShared = useCallback(async (id: string, shared: boolean) => {
+    const shareId = await archiveService.setShared(id, shared);
+    setItems(prev => prev.map(p => (p.id === id ? { ...p, shareId } : p)));
+    return shareId;
+  }, []);
+
   // Deleting every loaded item leaves no cursor for "Load older", so refetch
   // the newest page instead.
   useEffect(() => {
@@ -93,5 +100,5 @@ export function useArchive(): ArchiveState {
     fetchedAt.current = 0;
   }, []);
 
-  return { items, status, error, hasMore, isLoadingMore, ensureFresh, reload, loadMore, add, remove, reset };
+  return { items, status, error, hasMore, isLoadingMore, ensureFresh, reload, loadMore, add, remove, setShared, reset };
 }
