@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, ArrowRight, Eraser, Palette, Focus, Ticket, Upload, SlidersHorizontal, Download, Lock } from 'lucide-react';
+import { History, ArrowRight, Eraser, Palette, Focus, Ticket, Upload, SlidersHorizontal, Download } from 'lucide-react';
 import { Button } from './Button';
 import { BeforeAfterShowcase } from './BeforeAfterShowcase';
 import { PROCESSES } from './PromptSelector';
@@ -19,7 +19,7 @@ const FEATURES = [
 const STEPS = [
   { Icon: Upload, title: 'Upload a photo', desc: 'A scan or a phone snap of the print. JPG, PNG or WebP.' },
   { Icon: SlidersHorizontal, title: 'Choose a style', desc: 'Keep natural color, or develop it as one of six classic processes.' },
-  { Icon: Download, title: 'Save in 4K', desc: 'Compare before and after, download, and find it again in your archive.' },
+  { Icon: Download, title: 'Download it', desc: 'Compare it with the original and save the result. It also stays in your archive.' },
 ];
 
 // Small registration-mark corners used on framed panels across the app.
@@ -65,10 +65,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
           <div className="absolute -top-24 left-1/4 w-[38rem] h-[38rem] max-w-full bg-amber-500/[0.07] blur-[140px] animate-safelight-pulse pointer-events-none" />
           <div className="relative container mx-auto max-w-7xl px-5 pt-12 pb-16 sm:pt-16 lg:pt-24 lg:pb-28 grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
             <div className="lg:col-span-6 animate-rise">
-              <p className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-amber-500/80 mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                AI photo restoration · powered by Gemini
-              </p>
               <h1 className="font-display font-light text-[44px] sm:text-6xl xl:text-7xl leading-[1.02] tracking-tight text-ink-100 text-balance">
                 Restore history<br />
                 <span className="italic font-normal text-amber-400">to 4K.</span>
@@ -82,13 +78,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
                 <Button onClick={onSignIn} variant="outline">I have an account</Button>
               </div>
 
-              <ul className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[10px] uppercase tracking-widest text-ink-500">
-                <li>3 free a day</li>
-                <li className="w-1 h-1 rounded-full bg-ink-700" aria-hidden />
-                <li>No card needed</li>
-                <li className="w-1 h-1 rounded-full bg-ink-700" aria-hidden />
-                <li className="flex items-center gap-1.5"><Lock className="w-3 h-3" /> Private archive</li>
-              </ul>
+              <p className="mt-6 text-sm text-ink-500">
+                3 free restorations a day. No card needed.
+              </p>
             </div>
 
             <div className="lg:col-span-6 animate-rise" style={{ animationDelay: '120ms' }}>
@@ -100,12 +92,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
         {/* Features */}
         <section className="border-t border-ink-800/80">
           <div className="container mx-auto max-w-7xl px-5 py-16 lg:py-24">
-            <div className="max-w-2xl mb-10 lg:mb-14">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 mb-3">What it fixes</p>
-              <h2 className="font-display text-3xl sm:text-4xl font-light leading-tight text-ink-100 text-balance">
-                Everything a darkroom would do, <span className="italic text-amber-400">in one pass.</span>
-              </h2>
-            </div>
+            <h2 className="font-display text-3xl sm:text-4xl font-light leading-tight text-ink-100 mb-10 lg:mb-14">
+              What it fixes
+            </h2>
 
             {/* Ledger grid: 1px gaps over a hairline background read as ruled lines */}
             <ul className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-ink-800 border border-ink-800 shadow-plate">
@@ -129,9 +118,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
         {/* How it works */}
         <section className="border-t border-ink-800/80">
           <div className="container mx-auto max-w-7xl px-5 py-16 lg:py-24">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 mb-3">How it works</p>
             <h2 className="font-display text-3xl sm:text-4xl font-light leading-tight text-ink-100 mb-10 lg:mb-14">
-              Three steps, about a minute.
+              How it works
             </h2>
 
             <ol className="grid md:grid-cols-3 gap-8 md:gap-6">
@@ -168,10 +156,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
               <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 w-[32rem] h-64 max-w-full bg-amber-500/10 blur-[100px] pointer-events-none" />
               <Corners />
               <h2 className="relative font-display text-3xl sm:text-5xl font-light leading-tight text-ink-100 text-balance">
-                Your first three restorations <span className="italic text-amber-400">are on us.</span>
+                Try it on your own photos
               </h2>
               <p className="relative mt-4 text-ink-400 max-w-md mx-auto leading-relaxed">
-                Create a free account and bring an old photo back today. Credits refill every 24 hours.
+                Sign up for free and get 3 restorations a day.
               </p>
               <div className="relative mt-8 flex justify-center">
                 <Button onClick={onSignUp} icon={ArrowRight}>Restore a photo</Button>
@@ -183,7 +171,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
 
       <footer className="border-t border-ink-800/80">
         <div className="container mx-auto max-w-7xl px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-widest text-ink-600">
-          <span>NanoRewind · AI photo restoration</span>
+          <span>NanoRewind</span>
           <span>Powered by Google Gemini</span>
         </div>
       </footer>

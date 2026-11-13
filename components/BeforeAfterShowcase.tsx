@@ -95,8 +95,7 @@ export const BeforeAfterShowcase: React.FC<BeforeAfterShowcaseProps> = ({ before
 
       {/* Caption */}
       <p className="mt-3 flex items-center gap-2 font-mono text-[9px] uppercase tracking-widest text-ink-600">
-        <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
-        Drag to compare · live restoration preview
+        Drag to compare
       </p>
     </div>
   );

@@ -364,7 +364,7 @@ export const App: React.FC = () => {
                     </span>
                   ) : (
                     <span className="font-mono text-[9px] uppercase tracking-widest text-rust-400" title="This result couldn't be saved to your archive">
-                      Not saved · download to keep
+                      Not saved, download to keep
                     </span>
                   )
                 ) : (

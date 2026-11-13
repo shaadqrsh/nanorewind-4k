@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSet
                 NanoRewind
               </h1>
               <span className="hidden sm:block mt-1 font-mono text-[9px] uppercase tracking-widest text-ink-500">
-                AI Photo Restoration · 4K
+                AI photo restoration
               </span>
             </div>
           </div>

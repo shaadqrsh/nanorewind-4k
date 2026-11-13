@@ -126,14 +126,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, onAuthSucce
         </button>
 
         <div className="relative">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-amber-500/70 mb-5">AI photo restoration · 4K</p>
           <h2 className="font-display text-4xl xl:text-5xl font-light leading-[1.05] text-ink-100 text-balance">
             Bring faded<br />
             <span className="italic font-normal text-amber-400">photographs</span> back to life.
           </h2>
           <p className="mt-5 max-w-sm text-ink-400 leading-relaxed text-[15px]">
-            Upload an old photo and get a clean, sharp 4K version in seconds. Removes scratches,
-            fixes color, and brings back detail. Powered by Gemini.
+            Upload an old photo and get a cleaned-up, sharper version back in seconds.
           </p>
 
           {/* Live showcase — auto-sweeping before/after */}
@@ -145,9 +143,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, onAuthSucce
         </div>
 
         <div className="relative flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest text-ink-600">
-          <span>3 free / day</span>
-          <span className="w-1 h-1 rounded-full bg-ink-700" />
-          <span>secure &amp; private</span>
+          <span>3 free restorations a day</span>
         </div>
       </aside>
 

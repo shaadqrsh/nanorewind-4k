@@ -58,7 +58,7 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
 
       {/* Group A: Style (pick one) */}
       <div className="px-4 py-2 bg-ink-950/40 border-b border-ink-800/80">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Style · pick one</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Style (pick one)</span>
       </div>
       <div className="divide-y divide-ink-800/70">
         {PROCESSES.map((item) => {
@@ -96,7 +96,7 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChang
 
       {/* Group B: Extras (optional toggles) */}
       <div className="px-4 py-2 bg-ink-950/40 border-t border-b border-ink-800/80">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Extras · optional</span>
+        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Extras (optional)</span>
       </div>
       <div className="divide-y divide-ink-800/70">
         {MODIFIERS.map((item) => {

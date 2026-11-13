@@ -22,7 +22,7 @@ type Notice = { tone: 'ok' | 'error'; text: string } | null;
 const processOf = (r: Restoration) => PROCESSES.find(p => p.key === r.process) ?? PROCESSES[0];
 
 const treatmentLabel = (r: Restoration) =>
-  [processOf(r).label, ...MODIFIERS.filter(m => r[m.key]).map(m => m.label)].join(' · ');
+  [processOf(r).label, ...MODIFIERS.filter(m => r[m.key]).map(m => m.label)].join(', ');
 
 const displayName = (r: Restoration) =>
   (r.originalName ?? '').replace(/\.[^./\\]+$/, '') || 'Untitled photo';
@@ -95,7 +95,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
 
   const countLabel =
     status === 'ready'
-      ? `${items.length}${hasMore ? '+' : ''} saved · newest first`
+      ? `${items.length}${hasMore ? '+' : ''} saved, newest first`
       : 'your restorations';
 
   return (
@@ -232,8 +232,9 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({
                         </div>
 
                         <p className="mt-2.5 text-[12px] font-medium text-ink-200 truncate">{displayName(r)}</p>
-                        <p className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-ink-500 truncate">
-                          {formatDate(r.createdAt)} · {treatmentLabel(r)}
+                        <p className="mt-0.5 text-[11px] text-ink-400 truncate">{treatmentLabel(r)}</p>
+                        <p className="mt-1 font-mono text-[9px] uppercase tracking-widest text-ink-500 truncate">
+                          {formatDate(r.createdAt)}
                         </p>
                       </button>
 

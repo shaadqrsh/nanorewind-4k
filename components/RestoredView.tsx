@@ -104,7 +104,7 @@ export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, origina
           </span>
         </div>
         <div className="mt-5 flex flex-col items-center gap-3">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500">Ready · press “Restore photo” to start</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500">Ready. Press “Restore photo” to start.</p>
           <button onClick={() => setShowDeleteConfirm(true)}
             className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ink-500 hover:text-rust-400 transition-colors">
             <Trash2 className="w-3 h-3" /> Remove photo

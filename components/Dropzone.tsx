@@ -12,7 +12,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
   const validateFile = (file: File): boolean => {
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      setError("JPG · PNG · WebP only.");
+      setError("JPG, PNG or WebP only.");
       return false;
     }
     setError(null);
@@ -77,7 +77,7 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFileSelect }) => {
           <p className="font-mono text-[10px] uppercase tracking-widest text-ink-300">
             Click to upload
           </p>
-          <p className="mt-0.5 text-[10px] text-ink-500">or drag a photo here · JPG, PNG, WebP</p>
+          <p className="mt-0.5 text-[10px] text-ink-500">or drag a photo here (JPG, PNG or WebP)</p>
         </div>
 
         <input
