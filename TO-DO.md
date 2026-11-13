@@ -8,8 +8,11 @@ This document serves as a guide for implementing new features and enhancements f
 
 1. [x] **[Phase 1] The Plate Archive (Restoration Library)**
 2. [x] **[Phase 2] The Atelier Entrance (Landing Page)**
-3. [ ] **[Phase 3] API Rate-Limiting Decorator** — built, awaiting test
-4. [ ] **[Phase 4] Suggested Enhancements (Batching, Sharing, Fine-Tuning)**
+3. [x] **[Phase 3] API Rate-Limiting Decorator** (plus a security audit)
+4. [ ] **[Phase 4] Suggested Enhancements (Sharing, Fine-Tuning, Batching)**
+5. [ ] **[Phase 5] UI Redesign (Anti-Pattern Checklist)**
+6. [ ] **[Phase 6] Compliance, SEO & Accessibility**
+7. [ ] **[Phase 7] Paid Features (Stripe & Custom Domain)**
 
 ---
 
@@ -72,6 +75,16 @@ This document serves as a guide for implementing new features and enhancements f
 
   Login and recover were added because every Supabase auth call comes from Vercel's servers, so Supabase's own per-IP limits can't tell users apart.
 
+#### **Security audit** (added during this phase)
+- [x] **Decap CMS proxy:** fixed a token leak. Any website could receive a CMS user's GitHub token; it now goes only to `DECAP_ALLOWED_ORIGINS`.
+- [x] **Database:** least-privilege grants (`anon` has no table access; profile inserts are limited to `user_id`); a `ping()` function for the keep-alive job.
+- [x] **Sessions in HttpOnly cookies:** `Secure`, `SameSite=Strict`, scoped to `/api`; renewed server-side; revoked on sign-out; origin check on every state-changing request.
+- [x] **Email links use PKCE:** links carry a one-time code instead of tokens, and only work in the browser that requested them. Password reset now ends with a "Choose a new password" step (it previously had none).
+- [x] **Headers:** strict CSP and standard security headers in `vercel.json`. Tailwind moved from a runtime CDN script to the build.
+- [x] **Input checks:** auth endpoints validate input; email redirect links must point back to this site; uploads must really be images.
+- [x] **Dependencies:** 23 advisories down to 0 (`@vercel/node` replaced by local types). Stale `changes.md` and `metadata.json` removed.
+- [x] **Git history:** checked for leaked secrets; none found.
+
 ---
 
 ## 💡 Recommended Feature Suggestions (Aesthetic & Value Add)
@@ -88,6 +101,118 @@ This document serves as a guide for implementing new features and enhancements f
 - **Concept:** Drag and drop multiple photos into the tray. They queue up and process sequentially, updating a progress bar for each "plate".
 - **Why:** Dramatically improves the UX for users who want to restore entire albums.
 
-### 🌟 7. Stripe Checkout (Credits Refill)
+---
+
+### 7. 🎨 UI Redesign (Anti-Pattern Checklist)
+**Goal:** Redesign the UI without falling into generic, templated "AI-generated site" patterns. Check each item off once the redesign is confirmed free of it.
+
+#### **Color & Surfaces**
+- [ ] No harsh gradients
+- [ ] No pure white (`#fff`) background
+- [ ] No rainbow coloring
+- [ ] No purple-and-black palette
+- [ ] No neon colors
+- [ ] No basic pastel colors
+- [ ] No colored accent stripe on cards (e.g. a left-border highlight)
+- [ ] No liquid glass / glassmorphism
+- [ ] No drop shadow on everything
+
+#### **Typography & Copy**
+- [ ] No Inter, Geist, or Space Grotesk fonts
+- [ ] No em dashes in UI copy
+- [ ] No emojis in UI copy
+- [ ] No "It's not X, it's Y" phrasing
+- [ ] Run all UI text through the `/humanizer` skill, including copy written in earlier phases
+
+#### **Layout & Components**
+- [ ] No three feature cards in a row
+- [ ] No bento grids
+- [ ] No terminal-window mockups
+- [ ] No checkmark bullets
+- [ ] No soft, uniform corner radius on everything
+- [ ] No loose side icons floating beside text
+
+#### **Decoration & Motion**
+- [ ] No radial orbs or glow blobs
+- [ ] No dot-grid backgrounds
+- [ ] No sparkle icons
+- [ ] No animated arrows
+- [ ] No hover animations on every element
+
+#### **Content & Trust**
+- [ ] No fake reviews or testimonials
+- [ ] No default placeholder content (template text, stock filler, sample data)
+- [x] No "Vite" or "React" in the browser tab title (title is "NanoRewind | Restore old photos with AI")
+- [ ] Show real product demos (actual restorations, not mockups)
+- [ ] Use skeleton loaders where content loads
+
+#### **Pages & Navigation**
+- [ ] Custom 404 page
+- [ ] One clear heading (`<h1>`) per page
+- [ ] Internal links between pages (landing, archive, policy pages)
+- [ ] Breadcrumbs on nested pages (e.g. policy pages, share pages)
+- [ ] Proper favicon set (currently an inline SVG data URI; add `.ico`, PNG sizes and `apple-touch-icon`)
+- [ ] Social share images for every public page (`og-image.jpg` covers the landing page only)
+
+---
+
+### 8. ⚖️ Compliance, SEO & Accessibility
+**Goal:** Make the app legally sound, honest, discoverable and accessible before a public launch.
+
+#### **Legal & Policies**
+- [ ] Add a Privacy Policy page
+- [ ] Add a Terms of Service page
+- [ ] Add a Cookie Policy page
+- [ ] Add a cookie consent banner
+- [ ] Add business details (name, contact, address)
+- [ ] License all fonts and images used
+
+#### **Data & Consent**
+- [ ] Check form consents (signup, any checkboxes)
+- [ ] Don't collect unnecessary data
+- [ ] Audit third-party SDKs
+- [ ] Get age consent if collecting kids' data
+- [ ] Add an unsubscribe link to emails
+- [ ] Add a data deletion request option
+
+#### **Honest Marketing**
+- [ ] Remove dark patterns
+- [ ] Remove unsupported claims
+
+#### **Accessibility**
+- [ ] Add alt text to images
+- [ ] Fix color contrast ratios
+- [ ] Add keyboard navigation
+
+#### **SEO & Metadata**
+- [ ] Proper page slugs (real routes like `/archive`, `/privacy`, `/terms` instead of in-app view state)
+- [ ] Unique page title per page
+- [ ] Unique meta description per page
+- [ ] Canonical tag per page (landing page already has one)
+- [ ] Add `sitemap.xml`
+- [ ] Add `robots.txt`
+- [ ] Add `llms.txt`
+- [ ] Add structured data (JSON-LD: `WebApplication` / `Organization`)
+
+#### **Production Build**
+- [ ] Fix all console errors and warnings
+- [x] No production source maps (Vite's default; confirmed no `.map` files in `dist/`)
+- [ ] Reduce the JavaScript bundle (currently one 311 KB chunk; code-split routes and heavy components)
+
+---
+
+### 9. 💳 Paid Features (Stripe & Custom Domain)
+**Goal:** Add the parts that cost money once the free version is launched and stable.
+
+#### **Stripe Checkout (Credits Refill)**
 - **Concept:** Integrates a basic payment gateway to purchase "exposures/credits" beyond the free 3 daily credits (e.g., $5 for 20 restorations).
 - **Why:** Transforms the hobby app into a micro-SaaS and covers Gemini API costs.
+- [ ] Stripe Checkout backend and webhook to add credits
+- [ ] Credits purchase UI
+- [ ] No three pricing tiers
+- [ ] No hidden fees (show the full price before checkout)
+- [ ] Add a Refund Policy page
+
+#### **Custom Domain**
+- [ ] Buy a custom domain and connect it in Vercel
+- [ ] Update canonical, `og:url`, `og:image` and sitemap URLs from `nanorewind-4k.vercel.app` to the new domain
