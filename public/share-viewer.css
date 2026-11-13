@@ -1,16 +1,19 @@
-/* Public share page (/share/<id>). Standalone: the app's bundle isn't loaded here. */
+/* Public share page (/share/<id>) and the 404 page. Standalone: the app bundle isn't loaded
+   here, so the oxblood album palette from index.css is repeated. */
 :root {
   color-scheme: dark;
-  --ink-950: #0c0a09;
-  --ink-900: #161311;
-  --ink-800: #241f1b;
-  --ink-700: #332b25;
-  --ink-500: #6b5d50;
-  --ink-400: #998a7b;
-  --ink-300: #c4b8a9;
-  --ink-100: #f2eee7;
-  --amber-500: #e0a458;
-  --amber-400: #e6b06a;
+  --page: #2b1517;
+  --panel: #351b1d;
+  --cover: #1f0e10;
+  --rule: #4a2a2c;
+  --bone: #f0e5d7;
+  --bone-2: #c9b8ab;
+  --bone-3: #a89287;
+  --corner: #e6d8c3;
+  --brass: #e3a95e;
+  --lens: #120a0b;
+  --serif: "Young Serif", Georgia, serif;
+  --sans: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -18,57 +21,104 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--ink-950) radial-gradient(120% 80% at 50% -10%, rgba(224, 164, 88, 0.08), transparent 55%);
-  color: var(--ink-300);
-  font: 15px/1.6 Geist, ui-sans-serif, system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  background: var(--page);
+  color: var(--bone);
+  font: 17px/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
 }
 
-.bar {
-  border-bottom: 1px solid var(--ink-800);
-  padding: 18px 20px;
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+
+.bar { background: var(--cover); border-bottom: 1px solid var(--rule); }
+.bar-in, .foot-in {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
-.brand {
-  font: 600 18px Fraunces, Georgia, serif;
-  color: var(--ink-100);
-  text-decoration: none;
-}
-.brand:hover { color: var(--amber-400); }
+.brand { font: 23px/1 var(--serif); text-decoration: none; white-space: nowrap; }
+.brand span { color: var(--brass); }
 
 .wrap {
-  max-width: 880px;
+  flex: 1;
+  width: 100%;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 40px 20px 64px;
+  padding: 28px max(16px, env(safe-area-inset-right)) 72px max(16px, env(safe-area-inset-left));
 }
 
-h1 {
-  margin: 0 0 6px;
-  font: 300 clamp(28px, 5vw, 40px)/1.1 Fraunces, Georgia, serif;
-  color: var(--ink-100);
+.crumbs ol { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 36px; padding: 0; list-style: none; font-size: 15px; color: var(--bone-3); }
+.crumbs li + li::before { content: "/"; margin-right: 8px; }
+.crumbs a { text-decoration: none; }
+.crumbs a:hover { color: var(--bone); }
+.crumbs [aria-current] { color: var(--bone-2); }
+
+h1 { margin: 0 0 8px; font: 400 clamp(32px, 5vw, 48px)/1.05 var(--serif); text-wrap: balance; }
+h2 { margin: 0; font: 400 clamp(24px, 3vw, 30px)/1.15 var(--serif); }
+.meta { margin: 0 0 36px; color: var(--bone-2); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 22px;
+  border: 1.5px solid var(--bone);
+  border-radius: 999px;
+  background: var(--bone);
+  color: var(--page);
+  font: 700 16px/1 var(--sans);
+  text-decoration: none;
+  white-space: nowrap;
 }
-.meta { margin: 0 0 24px; color: var(--ink-400); }
+.btn:hover { background: var(--corner); border-color: var(--corner); }
+.btn-quiet { min-height: 40px; padding: 0 18px; font-size: 15px; background: transparent; color: var(--bone); border-color: var(--bone-3); }
+.btn-quiet:hover { background: transparent; border-color: var(--bone); }
+
+/* A print held in four photo corners (same as the app). */
+.mount { --c: 24px; --co: 6px; position: relative; }
+.mount::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--co) * -1);
+  z-index: 5;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, var(--corner) 50%, transparent 50%) top left / var(--c) var(--c) no-repeat,
+    linear-gradient(225deg, var(--corner) 50%, transparent 50%) top right / var(--c) var(--c) no-repeat,
+    linear-gradient(45deg, var(--corner) 50%, transparent 50%) bottom left / var(--c) var(--c) no-repeat,
+    linear-gradient(315deg, var(--corner) 50%, transparent 50%) bottom right / var(--c) var(--c) no-repeat;
+}
+
+.stage { width: fit-content; max-width: 100%; margin: 0 auto; }
 
 .compare {
+  --pos: 50%;
   position: relative;
-  width: fit-content;
-  max-width: 100%;
-  margin: 0 auto;
-  border: 1px solid var(--ink-700);
-  background: var(--ink-900);
+  margin: 0;
+  min-width: min(280px, 100%);
+  min-height: 220px;
   overflow: hidden;
+  background: var(--panel);
   user-select: none;
   touch-action: pan-y;
   cursor: ew-resize;
-  --pos: 50%;
 }
-.compare:focus-visible { outline: 2px solid var(--amber-500); outline-offset: 3px; }
+/* Placeholder under the photo while it loads; the photo covers it. */
+.compare::before { content: ""; position: absolute; inset: 0; background: var(--panel); animation: breathe 1.6s ease-in-out infinite; }
+.compare.loaded { min-height: 0; min-width: 0; }
+.compare.loaded::before { animation: none; }
+.compare:focus-visible { outline: 2px solid var(--brass); outline-offset: 10px; }
 /* The restored photo sets the frame's size; tall photos are capped to the screen. */
-.compare .after { display: block; max-width: 100%; max-height: 75vh; width: auto; height: auto; }
-.compare .before {
-  position: absolute;
-  inset: 0;
-  clip-path: inset(0 calc(100% - var(--pos)) 0 0);
-}
+.compare .after { position: relative; z-index: 1; display: block; max-width: 100%; max-height: 72vh; width: auto; height: auto; }
+.compare .before { position: absolute; inset: 0; z-index: 2; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
 .compare .before img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .compare .handle {
   position: absolute;
@@ -77,49 +127,70 @@ h1 {
   left: var(--pos);
   width: 2px;
   margin-left: -1px;
-  background: var(--amber-500);
-  box-shadow: 0 0 12px rgba(224, 164, 88, 0.7);
+  z-index: 3;
+  background: var(--bone);
   pointer-events: none;
 }
-.compare .handle::after {
-  content: "";
+.compare .handle span {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   transform: translate(-50%, -50%);
-  border: 1px solid var(--amber-500);
-  background: var(--ink-950);
+  border-radius: 50%;
+  border: 2px solid var(--bone);
+  background: var(--lens);
 }
-.label {
+.compare .handle span::before {
+  content: "";
   position: absolute;
-  bottom: 12px;
-  padding: 3px 8px;
-  font: 500 10px "Geist Mono", ui-monospace, monospace;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-left: 2px solid var(--bone);
+  border-right: 2px solid var(--bone);
+}
+.tag {
+  position: absolute;
+  top: 14px;
+  z-index: 4;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font: 700 13px/1.2 var(--sans);
   pointer-events: none;
 }
-.label-before { left: 12px; background: rgba(12, 10, 9, 0.75); color: var(--ink-100); }
-.label-after { right: 12px; background: var(--amber-500); color: var(--ink-950); }
+.tag-before { left: 16px; background: var(--lens); color: var(--bone); }
+.tag-after { right: 16px; background: var(--bone); color: var(--lens); }
 
 /* Without the script, show just the restored photo. */
 .compare:not(.ready) .before,
 .compare:not(.ready) .handle,
-.compare:not(.ready) .label-before { display: none; }
+.compare:not(.ready) .tag-before { display: none; }
 
-.hint { margin: 12px 0 32px; font-size: 13px; color: var(--ink-400); }
+.hint { margin: 20px 0 64px; text-align: center; font-size: 15px; color: var(--bone-3); }
 
 .cta {
-  display: inline-block;
-  padding: 12px 22px;
-  background: var(--amber-500);
-  color: var(--ink-950);
-  font: 500 12px "Geist Mono", ui-monospace, monospace;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  text-decoration: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 36px;
+  border-top: 1px solid var(--rule);
 }
-.cta:hover { background: var(--amber-400); }
-.cta:focus-visible { outline: 2px solid var(--amber-500); outline-offset: 3px; }
+.cta p { margin: 8px 0 0; color: var(--bone-2); }
+
+.missing { display: flex; flex-wrap: wrap; align-items: center; gap: 48px; padding: 24px 0 40px; }
+.missing > div:last-child { flex: 1 1 280px; }
+.slot { width: 200px; aspect-ratio: 4 / 5; background: var(--panel); }
+.missing .meta { margin-bottom: 24px; }
+
+.foot { background: var(--cover); border-top: 1px solid var(--rule); font-size: 15px; color: var(--bone-3); }
+.foot a { text-decoration: none; }
+.foot a:hover { color: var(--bone); }
+
+@keyframes breathe { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .compare { animation: none; } }

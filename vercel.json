@@ -3,6 +3,10 @@
   "functions": {
     "api/restore.ts": {
       "maxDuration": 60
+    },
+    "api/share.ts": {
+      "maxDuration": 30,
+      "includeFiles": "{api/_lib/fonts/*.ttf,node_modules/harfbuzzjs/hb.wasm,node_modules/@resvg/resvg-wasm/index_bg.wasm}"
     }
   },
   "rewrites": [

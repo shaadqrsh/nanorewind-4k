@@ -16,7 +16,7 @@
     pos = Math.max(0, Math.min(100, p));
     el.style.setProperty('--pos', pos + '%');
     el.setAttribute('aria-valuenow', String(Math.round(pos)));
-    el.setAttribute('aria-valuetext', Math.round(pos) + '% original');
+    el.setAttribute('aria-valuetext', Math.round(pos) + '% before');
   }
 
   function fromPointer(e) {
@@ -42,6 +42,12 @@
     else return;
     e.preventDefault();
   });
+
+  // Drop the loading placeholder's minimum size once the photo is in.
+  var after = el.querySelector('.after');
+  function loaded() { el.classList.add('loaded'); }
+  if (after && after.complete && after.naturalWidth) loaded();
+  else if (after) after.addEventListener('load', loaded);
 
   set(50);
   el.classList.add('ready');
