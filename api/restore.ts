@@ -1,12 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { requireUser } from './_lib/auth.js';
+import { withRateLimit } from './_lib/rateLimit.js';
 import { ai, IMAGE_MODEL } from './_lib/gemini.js';
 import { archiveRestoration, RestorationDTO } from './_lib/archive.js';
 
 const PROCESSES = ['standard', 'silver-gelatin', 'albumen', 'cyanotype', 'autochrome', 'kodachrome'];
 const UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const ctx = await requireUser(req, res);
@@ -107,3 +108,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).json({ error: (err as Error).message });
   }
 }
+
+export default withRateLimit(handler, { name: 'restore', limit: 5, windowMs: 10 * 60 * 1000 });

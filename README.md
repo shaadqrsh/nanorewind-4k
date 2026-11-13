@@ -28,7 +28,7 @@ Restore old, scratched, or blurry photos to crisp 4K in seconds.
 - 🔍 **Before / after compare** — drag-to-reveal slider to inspect the restoration against the original.
 - 🗄️ **Archive** — every restoration is saved to a private library automatically. Reopen any of them in the compare view, or download, share or delete them.
 - 🎟️ **Daily free credits** — 3 restorations/day, tracked in Supabase.
-- 🔒 **Secure by design** — all auth and database logic runs server-side; no secrets in the browser.
+- 🔒 **Secure by design** — all auth and database logic runs server-side, with no secrets in the browser. Restore, sign-up, login and password-reset requests are rate-limited per client IP.
 
 ## 🏗️ Architecture
 

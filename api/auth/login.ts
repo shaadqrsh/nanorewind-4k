@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getGlobalSupabase } from '../_lib/supabase.js';
+import { withRateLimit } from '../_lib/rateLimit.js';
 import { ensureProfileExists } from '../_lib/profile.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { email, password } = req.body || {};
@@ -23,3 +24,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(500).json({ error: (err as Error).message || 'Login failed' });
   }
 }
+
+export default withRateLimit(handler, { name: 'login', limit: 10, windowMs: 15 * 60 * 1000 });

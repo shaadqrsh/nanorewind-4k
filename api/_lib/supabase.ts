@@ -27,6 +27,20 @@ export const getGlobalSupabase = () => {
   return _global;
 };
 
+// Unauthenticated client pointed at the project schema, for RPCs that run
+// before sign-in (e.g. rate limiting).
+const createAnonSchemaClient = () =>
+  createClient(supabaseUrl!, supabaseAnonKey!, {
+    db: { schema: SCHEMA },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+let _anonSchema: ReturnType<typeof createAnonSchemaClient> | null = null;
+export const getAnonSchemaClient = () => {
+  assertConfig();
+  if (!_anonSchema) _anonSchema = createAnonSchemaClient();
+  return _anonSchema;
+};
+
 // Per-request client scoped to the caller's token, with RLS enforced against the project schema.
 export const makeScopedClient = (token: string) => {
   assertConfig();

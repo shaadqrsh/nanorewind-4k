@@ -205,5 +205,81 @@ USING (
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
 );
 
+-- --- RATE LIMITING ---
+
+-- Hit counters per (endpoint, hashed client IP) and fixed window. Only the
+-- SECURITY DEFINER function below touches this table.
+CREATE TABLE IF NOT EXISTS "nanorewind-4k".rate_limits (
+  key TEXT NOT NULL,
+  window_start TIMESTAMP WITH TIME ZONE NOT NULL,
+  request_count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (key, window_start)
+);
+
+-- RLS on with no policies, and the blanket grants above revoked: clients can't
+-- read or reset their own counters.
+ALTER TABLE "nanorewind-4k".rate_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON "nanorewind-4k".rate_limits FROM anon, authenticated;
+
+-- Records one hit and reports whether the caller is within the limit.
+-- Uses a sliding-window estimate: the previous window's count, weighted by how
+-- much of it still overlaps the sliding window, plus the current window's count.
+-- This avoids the 2x burst a plain fixed window allows at each boundary.
+CREATE OR REPLACE FUNCTION "nanorewind-4k".hit_rate_limit(
+  p_key TEXT,
+  p_limit INT,
+  p_window_seconds INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = "nanorewind-4k", public
+AS $$
+DECLARE
+  v_now TIMESTAMPTZ := now();
+  v_window INTERVAL;
+  v_start TIMESTAMPTZ;
+  v_current INT;
+  v_previous INT;
+  v_estimate NUMERIC;
+BEGIN
+  IF p_key IS NULL OR length(p_key) > 200 OR p_limit < 1 OR p_window_seconds < 1 THEN
+    RAISE EXCEPTION 'invalid rate limit arguments';
+  END IF;
+
+  v_window := make_interval(secs => p_window_seconds);
+  v_start := to_timestamp(floor(extract(epoch FROM v_now) / p_window_seconds) * p_window_seconds);
+
+  INSERT INTO rate_limits (key, window_start, request_count)
+  VALUES (p_key, v_start, 1)
+  ON CONFLICT (key, window_start)
+  DO UPDATE SET request_count = rate_limits.request_count + 1
+  RETURNING request_count INTO v_current;
+
+  SELECT request_count INTO v_previous
+  FROM rate_limits
+  WHERE key = p_key AND window_start = v_start - v_window;
+
+  v_estimate := COALESCE(v_previous, 0)
+    * (1 - extract(epoch FROM (v_now - v_start)) / p_window_seconds)
+    + v_current;
+
+  -- Occasional cleanup so the table doesn't grow forever.
+  IF random() < 0.01 THEN
+    DELETE FROM rate_limits WHERE window_start < v_now - INTERVAL '2 days';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'allowed', v_estimate <= p_limit,
+    'remaining', GREATEST(0, floor(p_limit - v_estimate))::INT,
+    'reset', extract(epoch FROM v_start + v_window)::BIGINT
+  );
+END;
+$$;
+
+-- The API calls this with the anon key, including before sign-in (signup, login).
+REVOKE ALL ON FUNCTION "nanorewind-4k".hit_rate_limit(TEXT, INT, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION "nanorewind-4k".hit_rate_limit(TEXT, INT, INT) TO anon, authenticated, service_role;
+
 -- Make the API see new tables immediately (avoids PGRST205 "not in the schema cache").
 NOTIFY pgrst, 'reload schema';

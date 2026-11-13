@@ -7,8 +7,8 @@ This document serves as a guide for implementing new features and enhancements f
 ## 📅 Roadmap Overview
 
 1. [x] **[Phase 1] The Plate Archive (Restoration Library)**
-2. [ ] **[Phase 2] The Atelier Entrance (Landing Page)** — built, awaiting test
-3. [ ] **[Phase 3] API Rate-Limiting Decorator**
+2. [x] **[Phase 2] The Atelier Entrance (Landing Page)**
+3. [ ] **[Phase 3] API Rate-Limiting Decorator** — built, awaiting test
 4. [ ] **[Phase 4] Suggested Enhancements (Batching, Sharing, Fine-Tuning)**
 
 ---
@@ -61,41 +61,16 @@ This document serves as a guide for implementing new features and enhancements f
 ### 3. 🛡️ API Rate-Limiting Decorator
 **Goal:** Prevent abuse of costly AI processing (`/api/restore.ts`) and auth endpoints (`/api/auth/signup`) by implementing a rate-limiting wrapper.
 
-#### **Mechanism Selection**
-- **Option A (Postgres-Backed Sliding Window):** Keep everything within the existing Supabase instance by creating a simple rate-limit hits table:
-  ```sql
-  CREATE TABLE IF NOT EXISTS "nanorewind-4k".rate_limits (
-    ip TEXT NOT NULL,
-    endpoint TEXT NOT NULL,
-    window_start TIMESTAMP WITH TIME ZONE NOT NULL,
-    request_count INTEGER DEFAULT 1,
-    PRIMARY KEY (ip, endpoint, window_start)
-  );
-  ```
-- **Option B (Upstash Redis):** Use Upstash Redis via `@upstash/ratelimit` for ultra-fast, stateless rate-limiting suitable for serverless edge functions.
+#### **Implementation** (see `api/_lib/rateLimit.ts` and `backend/supabase_schema.sql`)
+- [x] **Mechanism:** Option A (Postgres). The `hit_rate_limit` SECURITY DEFINER function counts and decides in one atomic call, using a sliding-window estimate (previous window weighted, plus the current one). The `rate_limits` table is locked down: RLS on, no policies, grants revoked. Client IPs are stored only as hashes. Old rows are pruned occasionally.
+- [x] **Higher-order function:** `withRateLimit(handler, { name, limit, windowMs })`. Buckets are keyed by a fixed `name` rather than `req.url`, because a query string would otherwise get a fresh bucket. Sets `X-RateLimit-*` headers, and on 429 adds `Retry-After` and a readable "Try again in N minutes" message. Fails open if the limiter itself errors.
+- [x] **Applied to endpoints:**
+  - `/api/restore`: 5 per 10 minutes
+  - `/api/auth/signup`: 3 per hour
+  - `/api/auth/login`: 10 per 15 minutes (added for brute-force protection)
+  - `/api/auth/recover`: 3 per hour (added to stop reset-email spam)
 
-#### **Decorator Implementation (`api/_lib/rateLimit.ts`)**
-- [ ] **Create Higher-Order Function:**
-  ```typescript
-  import type { VercelRequest, VercelResponse, VercelApiHandler } from '@vercel/node';
-
-  export function withRateLimit(handler: VercelApiHandler, options: { limit: number; windowMs: number }) {
-    return async (req: VercelRequest, res: VercelResponse) => {
-      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
-      const endpoint = req.url || 'default';
-      
-      // 1. Check rate limit database/cache
-      // 2. Increment request count
-      // 3. If count > limit, return res.status(429).json({ error: 'Too many requests' })
-      // 4. Attach headers: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
-      
-      return handler(req, res);
-    };
-  }
-  ```
-- [ ] **Apply to Endpoints:**
-  - Wrap `/api/restore.ts` to limit IP-based requests (e.g., max 5 requests per 10 minutes to mitigate bulk uploads/bots).
-  - Wrap `/api/auth/signup.ts` to mitigate brute force account creation (e.g., max 3 signups per hour per IP).
+  Login and recover were added because every Supabase auth call comes from Vercel's servers, so Supabase's own per-IP limits can't tell users apart.
 
 ---
 
