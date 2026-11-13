@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
-import { Plus, AlertCircle } from 'lucide-react';
+import React, { useCallback, useRef, useState } from 'react';
 import { UPLOAD_TYPES } from '../utils/image';
+import { buttonClass } from './Button';
 
 interface DropzoneProps {
   onFilesSelect: (files: File[]) => void;
@@ -8,9 +8,11 @@ interface DropzoneProps {
 
 export const MAX_BATCH = 10;
 
+// The empty workspace: an empty album slot that takes dropped or chosen photos.
 export const Dropzone: React.FC<DropzoneProps> = ({ onFilesSelect }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Keeps the usable photos and explains anything that was left out.
   const accept = useCallback((list: FileList | null) => {
@@ -18,82 +20,40 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFilesSelect }) => {
     const all = Array.from(list);
     const images = all.filter(f => UPLOAD_TYPES.includes(f.type));
     const kept = images.slice(0, MAX_BATCH);
-    if (images.length < all.length) setError('Some files were skipped: only JPG, PNG or WebP photos work.');
-    else if (kept.length < images.length) setError(`Up to ${MAX_BATCH} photos at a time. The first ${MAX_BATCH} were added.`);
+    if (images.length < all.length) setError('Some files were skipped. Only JPG, PNG and WebP photos work.');
+    else if (kept.length < images.length) setError(`You can add up to ${MAX_BATCH} photos at a time, so the first ${MAX_BATCH} were added.`);
     else setError(null);
     if (kept.length > 0) onFilesSelect(kept);
   }, [onFilesSelect]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    accept(e.dataTransfer.files);
-  }, [accept]);
-
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    accept(e.target.files);
-    e.target.value = ''; // so choosing the same files again still fires
-  }, [accept]);
-
   return (
-    <div className="flex flex-col gap-1.5 h-full">
-      <label
-        className={`group relative flex flex-col items-center justify-center w-full h-full cursor-pointer transition-colors duration-200
-          ${isDragOver
-            ? 'bg-amber-500/[0.07]'
-            : error
-              ? 'bg-rust-500/[0.05]'
-              : 'bg-ink-950/40 hover:bg-ink-900/60'
-          }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+    <div className="w-full max-w-[600px] mx-auto">
+      <div
+        className={`mount aspect-[4/3] grid place-items-center text-center px-6 rounded-[2px] transition-colors
+          ${isDragOver ? 'bg-brass/10' : 'bg-panel'}`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={(e) => { e.preventDefault(); setIsDragOver(false); }}
+        onDrop={(e) => { e.preventDefault(); setIsDragOver(false); accept(e.dataTransfer.files); }}
       >
-        {/* Dashed easel frame */}
-        <span
-          className={`absolute inset-1.5 border border-dashed transition-colors duration-200
-            ${isDragOver ? 'border-amber-500' : error ? 'border-rust-500/50' : 'border-ink-600 group-hover:border-amber-500/40'}`}
-        />
-        {/* Corner registration marks */}
-        {['top-0 left-0 border-t border-l', 'top-0 right-0 border-t border-r', 'bottom-0 left-0 border-b border-l', 'bottom-0 right-0 border-b border-r'].map((pos) => (
-          <span key={pos} className={`absolute w-2.5 h-2.5 ${pos} ${isDragOver ? 'border-amber-500' : 'border-ink-500'}`} />
-        ))}
-
-        <div className="relative flex flex-col items-center text-center px-4">
-          <Plus
-            className={`w-6 h-6 mb-2 transition-all duration-200 ${isDragOver ? 'text-amber-500 rotate-90' : 'text-ink-400 group-hover:text-amber-500/70'}`}
-            strokeWidth={1.5}
-          />
-          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-300">
-            Click to upload
+        <div className="flex flex-col items-center gap-4 max-w-sm">
+          <h2 className="font-display text-[28px] leading-tight">{isDragOver ? 'Drop to add' : 'Add a photo'}</h2>
+          <p className="text-bone-2">
+            Drop a scan or a phone photo of the print here. JPG, PNG or WebP, up to {MAX_BATCH} at once.
           </p>
-          <p className="mt-0.5 text-[10px] text-ink-500">or drag photos here, up to {MAX_BATCH} at once</p>
+          <button type="button" onClick={() => inputRef.current?.click()} className={`${buttonClass('primary')} mt-1`}>
+            Choose photos
+          </button>
         </div>
-
         <input
+          ref={inputRef}
           type="file"
           className="hidden"
-          accept="image/png, image/jpeg, image/webp"
+          accept={UPLOAD_TYPES.join(', ')}
           multiple
-          onChange={handleInputChange}
+          onChange={(e) => { accept(e.target.files); e.target.value = ''; }}
         />
-      </label>
-      {error && (
-        <div className="flex items-center gap-1.5 font-mono text-[10px] text-rust-400 px-1">
-          <AlertCircle className="w-3 h-3" />
-          {error}
-        </div>
-      )}
+      </div>
+      {error && <p role="alert" className="mt-4 text-[15px] text-rust text-center">{error}</p>}
     </div>
   );
 };

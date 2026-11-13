@@ -1,272 +1,340 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Image as ImageIcon, Sparkles, Columns, MoveHorizontal, Trash2, AlertTriangle, X, Share2 } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { RestorationStatus } from '../types';
 import { Button } from './Button';
+import { Modal } from './Modal';
 import { downloadImage, restoredFilename } from '../utils/image';
 
 interface RestoredViewProps {
+  title: string;
   originalUrl: string;
   originalName: string;
   restoredUrl: string | null;
   status: RestorationStatus;
-  archived: boolean;   // true when this result is saved in the archive
+  archived: boolean;            // true when this result is saved in the album
+  treatment: string | null;     // style used for the result, e.g. "Sepia, deeper shadows"
   onRemove: () => void;
-  onShare?: () => void;  // shown when the result is in the archive
+  onShare?: () => void;         // shown when the result is in the album
 }
 
-type ViewMode = 'original' | 'restored' | 'side-by-side' | 'slider';
+type Mode = 'loupe' | 'slider' | 'pair';
+const MODES: { mode: Mode; label: string }[] = [
+  { mode: 'loupe', label: 'Loupe' },
+  { mode: 'slider', label: 'Slider' },
+  { mode: 'pair', label: 'Side by side' },
+];
+const MODE_KEY = 'nanorewind:view-mode';
+const ZOOM = 2.4;
 
-export const RestoredView: React.FC<RestoredViewProps> = ({ originalUrl, originalName, restoredUrl, status, archived, onRemove, onShare }) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('slider');
-  const [sliderPos, setSliderPos] = useState(50);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+// Natural pixel size of an image, once it has loaded.
+const useNaturalSize = (url: string | null) => {
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    setSize(null);
+    if (!url) return;
+    const img = new Image();
+    img.onload = () => setSize({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = url;
+    return () => { img.onload = null; };
+  }, [url]);
+  return size;
+};
+
+const savedMode = (): Mode => {
+  try {
+    const m = localStorage.getItem(MODE_KEY);
+    return m === 'slider' || m === 'pair' ? m : 'loupe';
+  } catch {
+    return 'loupe';
+  }
+};
+
+// The restored photo, magnified, inside a lens over the original. The lens
+// follows the mouse, can be dragged or tapped into place, and moves with the
+// arrow keys. It stays inside the photo.
+const Loupe: React.FC<{ baseUrl: string; lensUrl: string }> = ({ baseUrl, lensUrl }) => {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [pt, setPt] = useState({ x: 0.5, y: 0.4 });
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const measure = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const moveTo = (clientX: number, clientY: number) => {
+    const r = stageRef.current!.getBoundingClientRect();
+    setPt({ x: clamp((clientX - r.left) / r.width, 0, 1), y: clamp((clientY - r.top) / r.height, 0, 1) });
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const s = e.shiftKey ? 0.1 : 0.03;
+    const moves: Record<string, [number, number]> = { ArrowLeft: [-s, 0], ArrowRight: [s, 0], ArrowUp: [0, -s], ArrowDown: [0, s] };
+    const m = moves[e.key];
+    if (!m) return;
+    e.preventDefault();
+    setPt(p => ({ x: clamp(p.x + m[0], 0, 1), y: clamp(p.y + m[1], 0, 1) }));
+  };
+
+  const D = Math.round(clamp(box.w * 0.4, 130, 250));
+  const inner = D - 14; // inside the 7px rim
+  const cx = clamp(pt.x * box.w, D / 2, box.w - D / 2);
+  const cy = clamp(pt.y * box.h, D / 2, box.h - D / 2);
+
+  return (
+    <div
+      ref={stageRef}
+      className="absolute inset-0 cursor-crosshair select-none touch-pan-y"
+      onPointerMove={(e) => { if (e.pointerType === 'mouse' || dragging.current) moveTo(e.clientX, e.clientY); }}
+      onPointerDown={(e) => { dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); moveTo(e.clientX, e.clientY); }}
+      onPointerUp={() => { dragging.current = false; }}
+      onPointerCancel={() => { dragging.current = false; }}
+    >
+      <img src={baseUrl} alt="Original photo" draggable={false} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+      {box.w > 0 && (
+        <div
+          role="img"
+          tabIndex={0}
+          aria-label={`Loupe showing the restored photo at ${ZOOM} times. Use the arrow keys to move it.`}
+          onKeyDown={onKeyDown}
+          className="absolute left-0 top-0 z-[6] rounded-full border-[7px] border-lens bg-lens bg-no-repeat touch-none cursor-grab active:cursor-grabbing shadow-[0_0_0_1.5px_rgb(var(--corner))] focus-visible:outline-offset-4"
+          style={{
+            width: D,
+            height: D,
+            transform: `translate(${cx - D / 2}px, ${cy - D / 2}px)`,
+            backgroundImage: `url("${lensUrl}")`,
+            backgroundSize: `${box.w * ZOOM}px ${box.h * ZOOM}px`,
+            backgroundPosition: `${-(cx * ZOOM - inner / 2)}px ${-(cy * ZOOM - inner / 2)}px`,
+          }}
+        >
+          <span className="absolute left-1/2 top-[calc(100%+8px)] -translate-x-1/2 px-2.5 py-1 rounded-full bg-lens text-bone text-[13px] font-bold whitespace-nowrap pointer-events-none">
+            After, {ZOOM}×
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Drag-to-reveal slider: the original on the left of the line, the restoration on the right.
+const Compare: React.FC<{ beforeUrl: string; afterUrl: string }> = ({ beforeUrl, afterUrl }) => {
+  const elRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+  const [pos, setPos] = useState(50);
+
+  const fromX = (clientX: number) => {
+    const r = elRef.current!.getBoundingClientRect();
+    setPos(clamp(((clientX - r.left) / r.width) * 100, 0, 100));
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? 10 : 2;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') setPos(p => clamp(p - step, 0, 100));
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') setPos(p => clamp(p + step, 0, 100));
+    else if (e.key === 'Home') setPos(0);
+    else if (e.key === 'End') setPos(100);
+    else return;
+    e.preventDefault();
+  };
+
+  return (
+    <div
+      ref={elRef}
+      className="absolute inset-0 overflow-hidden cursor-ew-resize select-none touch-pan-y"
+      onPointerDown={(e) => { dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); fromX(e.clientX); }}
+      onPointerMove={(e) => { if (dragging.current) fromX(e.clientX); }}
+      onPointerUp={() => { dragging.current = false; }}
+      onPointerCancel={() => { dragging.current = false; }}
+    >
+      <img src={afterUrl} alt="Restored photo" draggable={false} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+      <img src={beforeUrl} alt="Original photo" draggable={false} className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }} />
+      <div className="absolute inset-y-0 w-0.5 -ml-px bg-bone pointer-events-none" style={{ left: `${pos}%` }} />
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label="Compare before and after"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(pos)}
+        aria-valuetext={`${Math.round(pos)}% before`}
+        onKeyDown={onKeyDown}
+        className="absolute top-1/2 z-[6] grid place-items-center w-11 h-11 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lens border-2 border-bone"
+        style={{ left: `${pos}%` }}
+      >
+        <span className="w-2.5 h-3.5 border-x-2 border-bone" aria-hidden="true" />
+      </div>
+      <span className="absolute top-3.5 left-4 px-2.5 py-1 rounded-full bg-lens text-bone text-[13px] font-bold pointer-events-none">Before</span>
+      <span className="absolute top-3.5 right-4 px-2.5 py-1 rounded-full bg-bone text-lens text-[13px] font-bold pointer-events-none">After</span>
+    </div>
+  );
+};
+
+// One photo at its own shape inside photo corners, with a placeholder while it loads.
+const MountedPhoto: React.FC<{ src: string; alt: string; dim?: boolean; children?: React.ReactNode }> = ({ src, alt, dim, children }) => {
+  // Tracks which src has loaded, so a new src shows the placeholder again. A
+  // cached image can finish before effects run, so also check img.complete.
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) setLoadedSrc(src);
+  }, [src]);
+  const loaded = loadedSrc === src;
+  return (
+    <div className="mount w-fit max-w-full mx-auto">
+      {!loaded && <div className="w-[min(80vw,420px)] aspect-[4/3] bg-panel animate-breathe" aria-hidden="true" />}
+      <img ref={imgRef} src={src} alt={alt} onLoad={() => setLoadedSrc(src)}
+        className={`${loaded ? 'block' : 'hidden'} max-w-full max-h-[60vh] w-auto h-auto ${dim ? 'opacity-55' : ''}`} />
+      {children}
+    </div>
+  );
+};
+
+export const RestoredView: React.FC<RestoredViewProps> = ({
+  title, originalUrl, originalName, restoredUrl, status, archived, treatment, onRemove, onShare,
+}) => {
+  const [mode, setModeState] = useState<Mode>(savedMode);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const restoredSize = useNaturalSize(restoredUrl);
+  const originalSize = useNaturalSize(originalUrl);
+  const done = status === 'success' && !!restoredUrl;
+
+  const setMode = useCallback((m: Mode) => {
+    setModeState(m);
+    try { localStorage.setItem(MODE_KEY, m); } catch { /* private mode */ }
+  }, []);
+
+  useEffect(() => setDownloadError(null), [restoredUrl]);
 
   const handleDownload = async () => {
     if (!restoredUrl) return;
     setIsDownloading(true);
+    setDownloadError(null);
     try {
       await downloadImage(restoredUrl, restoredFilename(originalName));
-    } catch {
-      // Last resort: open the image so it can be saved by hand.
-      window.open(restoredUrl, '_blank', 'noopener');
+    } catch (err) {
+      setDownloadError((err as Error).message || 'The download failed. Try again.');
     } finally {
       setIsDownloading(false);
     }
   };
 
-  const handleMove = useCallback((clientX: number) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    setSliderPos((x / rect.width) * 100);
-  }, []);
+  // The loupe and slider frame takes the restored photo's shape, capped to the screen height.
+  const ratio = restoredSize ? restoredSize.w / restoredSize.h : 1;
+  const frameStyle = { width: `min(100%, ${(60 * ratio).toFixed(2)}vh)`, aspectRatio: `${ratio}` };
+  const px = (s: { w: number; h: number } | null) => (s ? `${s.w} × ${s.h} px` : '');
 
-  const handleMouseDown = (e: React.MouseEvent) => { isDragging.current = true; handleMove(e.clientX); };
-  const handleTouchStart = (e: React.TouchEvent) => { isDragging.current = true; handleMove(e.touches[0].clientX); };
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => { if (isDragging.current) handleMove(e.clientX); };
-    const onUp = () => { isDragging.current = false; };
-    const onTouch = (e: TouchEvent) => { if (isDragging.current) handleMove(e.touches[0].clientX); };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onTouch);
-    window.addEventListener('touchend', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchmove', onTouch);
-      window.removeEventListener('touchend', onUp);
-    };
-  }, [handleMove]);
-
-  // ── Developing state ──────────────────────────────────────────
+  let stage: React.ReactNode;
   if (status === 'loading') {
-    return (
-      <div className="relative flex flex-col items-center justify-center w-full h-full p-12 overflow-hidden">
-        {/* the plate, emerging from the bath */}
-        <div className="relative w-44 h-44 mb-8 border border-ink-700 overflow-hidden bg-ink-950">
-          <img
-            src={originalUrl}
-            alt="Developing"
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ filter: 'sepia(0.6) brightness(0.45) contrast(0.8)' }}
-          />
-          {/* scanning safelight */}
-          <div className="absolute inset-x-0 h-1/3 bg-gradient-to-b from-transparent via-amber-500/25 to-transparent animate-scan" />
-          {/* corner marks */}
-          <span className="absolute top-1 left-1 w-2.5 h-2.5 border-t border-l border-amber-500/60" />
-          <span className="absolute bottom-1 right-1 w-2.5 h-2.5 border-b border-r border-amber-500/60" />
-        </div>
-        <h3 className="font-display text-xl font-semibold text-ink-100 mb-2">Restoring your photo…</h3>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 text-center max-w-xs leading-relaxed">
-          This usually takes a few seconds
-        </p>
-        <div className="mt-5 flex items-center gap-1.5">
-          {[0, 1, 2].map(i => (
-            <span key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" style={{ animationDelay: `${i * 200}ms` }} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Loaded, not yet developed ─────────────────────────────────
-  if (status === 'idle' || !restoredUrl) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-6">
-        <div className="relative max-w-full">
-          <img src={originalUrl} alt="Original Preview" className="max-w-full max-h-[400px] object-contain border border-ink-700 shadow-plate" />
-          <span className="absolute top-2 left-2 font-mono text-[9px] uppercase tracking-widest text-ink-300 bg-ink-950/70 px-1.5 py-0.5">
-            Original
+    stage = (
+      <div className="flex flex-col items-center gap-6">
+        <MountedPhoto src={originalUrl} alt="Your photo, being restored" dim>
+          <span className="absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-cover/70" aria-hidden="true">
+            <span className="block h-full w-1/3 bg-brass animate-progress" />
           </span>
+        </MountedPhoto>
+        <div className="text-center" role="status">
+          <p className="font-display text-2xl">Restoring your photo</p>
+          <p className="text-bone-2 mt-1">This usually takes a few seconds.</p>
         </div>
-        <div className="mt-5 flex flex-col items-center gap-3">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500">Ready. Press “Restore photo” to start.</p>
-          <button onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ink-500 hover:text-rust-400 transition-colors">
-            <Trash2 className="w-3 h-3" /> Remove photo
-          </button>
+      </div>
+    );
+  } else if (!done) {
+    stage = (
+      <div className="flex flex-col items-center gap-6">
+        <MountedPhoto src={originalUrl} alt="Your photo" />
+        <p className="text-bone-2 text-center max-w-md">Choose a style, then press Restore.</p>
+      </div>
+    );
+  } else if (mode === 'pair') {
+    stage = (
+      <div className="grid grid-cols-2 items-start gap-5 sm:gap-10 w-full max-w-[860px]">
+        <figure className="min-w-0">
+          <div className="mount mount-sm"><img src={originalUrl} alt="Original photo" className="block w-full h-auto" /></div>
+          <figcaption className="mt-4 text-[15px] text-bone-2"><b className="block text-bone">Before</b>{px(originalSize)}</figcaption>
+        </figure>
+        <figure className="min-w-0">
+          <div className="mount mount-sm"><img src={restoredUrl!} alt="Restored photo" className="block w-full h-auto" /></div>
+          <figcaption className="mt-4 text-[15px] text-bone-2"><b className="block text-bone">After</b>{px(restoredSize)}</figcaption>
+        </figure>
+      </div>
+    );
+  } else {
+    stage = (
+      <div className="w-full flex flex-col items-center gap-5">
+        <div className="mount mx-auto" style={frameStyle}>
+          {mode === 'loupe'
+            ? <Loupe baseUrl={originalUrl} lensUrl={restoredUrl!} />
+            : <Compare beforeUrl={originalUrl} afterUrl={restoredUrl!} />}
         </div>
-
-        {showDeleteConfirm && (
-          <div className="absolute inset-0 z-50 grid place-items-center bg-ink-950/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-xs bg-ink-900 border border-ink-700 shadow-plate p-6">
-              <h3 className="font-display text-lg font-semibold text-ink-100 mb-2">Remove photo?</h3>
-              <p className="text-ink-400 text-sm mb-5">This clears the current image.</p>
-              <div className="flex gap-2">
-                <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 !py-2 !px-3">Cancel</Button>
-                <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-3">Remove</Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <p className="text-[15px] text-bone-3 text-center">
+          {mode === 'loupe' ? 'Move the loupe over the photo, or tap where you want it.' : 'Drag the line to compare.'}
+        </p>
       </div>
     );
   }
-
-  // ── Developed ─────────────────────────────────────────────────
-  const tabs: { mode: ViewMode; label: string; Icon: typeof ImageIcon }[] = [
-    { mode: 'original', label: 'Original', Icon: ImageIcon },
-    { mode: 'restored', label: 'Restored', Icon: Sparkles },
-    { mode: 'slider', label: 'Compare', Icon: MoveHorizontal },
-    { mode: 'side-by-side', label: 'Split', Icon: Columns },
-  ];
 
   return (
-    <div className="flex flex-col w-full h-full relative animate-develop">
-      {/* Toolbar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3 bg-ink-900/80 border-b border-ink-800 backdrop-blur-sm z-10">
-        <div className="flex flex-wrap gap-1.5 justify-center md:justify-start">
-          {tabs.map(({ mode, label, Icon }) => {
-            const active = viewMode === mode;
-            return (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`flex items-center gap-2 px-3 py-2 font-mono text-[11px] uppercase tracking-widest transition-colors border
-                  ${active
-                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
-                    : 'bg-transparent border-ink-700 text-ink-400 hover:text-ink-200 hover:border-ink-600'}`}
-              >
-                <Icon className="w-3.5 h-3.5" /> {label}
+    <section className="flex flex-col gap-6 min-w-0" aria-label="Your photo">
+      <div className="flex flex-wrap items-center justify-between gap-3.5">
+        <h1 className="font-display text-[clamp(30px,3.4vw,40px)] leading-[1.05]">{title}</h1>
+        {done && (
+          <div className="flex flex-wrap gap-1" role="group" aria-label="View">
+            {MODES.map(({ mode: m, label }) => (
+              <button key={m} type="button" onClick={() => setMode(m)} aria-pressed={mode === m}
+                className={`px-3.5 py-[7px] rounded-full border-[1.5px] text-[15px] transition-colors
+                  ${mode === m ? 'bg-bone border-bone text-page font-bold' : 'border-rule text-bone-2 hover:text-bone hover:border-bone-3'}`}>
+                {label}
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-        <div className="flex items-center gap-2">
-          {onShare && (
-            <button
-              onClick={onShare}
-              title="Share"
-              className="p-2.5 text-ink-400 hover:text-amber-400 border border-ink-700 hover:border-amber-500/40 transition-colors"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
+      <div className="grid place-items-center py-2 sm:py-6 min-h-[340px]">{stage}</div>
+
+      <div className="flex flex-wrap items-end justify-between gap-4 pt-[18px] border-t border-rule">
+        <div className="min-w-0 text-[15px]">
+          <p className="font-bold truncate">{originalName}</p>
+          {done ? (
+            archived
+              ? <p className="text-bone-2">Restored in {treatment ? treatment.toLowerCase() : 'your chosen style'}. Saved to your album.</p>
+              : <p className="text-rust">This result wasn't saved to your album. Download it to keep it.</p>
+          ) : (
+            <p className="text-bone-2">{status === 'loading' ? 'Restoring' : 'Not restored yet'}{originalSize ? `, ${px(originalSize)}` : ''}</p>
           )}
-          {/* An archived result is safe to close; an unsaved one asks first. */}
-          <button
-            onClick={() => (archived ? onRemove() : setShowDeleteConfirm(true))}
-            title={archived ? 'Close' : 'Discard'}
-            className="p-2.5 text-ink-400 hover:text-rust-400 border border-ink-700 hover:border-rust-500/40 transition-colors"
-          >
-            {archived ? <X className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
-          </button>
-          <Button onClick={handleDownload} isLoading={isDownloading} icon={Download} className="!py-2.5 !px-5">
-            Save 4K
-          </Button>
+          {downloadError && <p role="alert" className="text-rust mt-1">{downloadError}</p>}
         </div>
+        {status !== 'loading' && (
+          <div className="flex flex-wrap gap-2.5">
+            {done && onShare && <Button variant="quiet" size="sm" onClick={onShare}>Share</Button>}
+            {done && !archived
+              ? <Button variant="danger" size="sm" onClick={() => setConfirmDiscard(true)}>Discard</Button>
+              : <Button variant="quiet" size="sm" onClick={onRemove}>{done ? 'Close' : 'Remove'}</Button>}
+            {done && <Button size="sm" onClick={handleDownload} isLoading={isDownloading}>Download</Button>}
+          </div>
+        )}
       </div>
 
-      {showDeleteConfirm && (
-        <div className="absolute inset-0 z-50 grid place-items-center bg-ink-950/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-ink-900 border border-ink-700 shadow-plate p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="grid place-items-center w-10 h-10 bg-rust-500/10 border border-rust-500/30">
-                <AlertTriangle className="w-5 h-5 text-rust-400" />
-              </div>
-              <h3 className="font-display text-lg font-semibold text-ink-100">Remove photo?</h3>
-            </div>
-            <p className="text-ink-400 text-sm mb-5">This result wasn't saved to your archive, so it will be lost. Download it first to keep it.</p>
-            <div className="flex gap-2">
-              <Button onClick={() => setShowDeleteConfirm(false)} variant="secondary" className="flex-1 !py-2 !px-4">Cancel</Button>
-              <Button onClick={() => { onRemove(); setShowDeleteConfirm(false); }} variant="danger" className="flex-1 !py-2 !px-4">Remove</Button>
-            </div>
+      {confirmDiscard && (
+        <Modal title="Discard this result?" size="sm" onClose={() => setConfirmDiscard(false)}>
+          <p className="text-bone-2 mb-6">It wasn't saved to your album, so it will be lost. Download it first if you want to keep it.</p>
+          <div className="flex gap-3">
+            <Button variant="quiet" className="flex-1" onClick={() => setConfirmDiscard(false)}>Cancel</Button>
+            <Button variant="danger" className="flex-1" onClick={() => { setConfirmDiscard(false); onRemove(); }}>Discard</Button>
           </div>
-        </div>
+        </Modal>
       )}
-
-      {/* Image stage - dark checkerboard tray */}
-      <div
-        className="flex-grow relative w-full overflow-hidden flex items-center justify-center p-5"
-        style={{
-          backgroundColor: '#0c0a09',
-          backgroundImage:
-            'linear-gradient(45deg, #161311 25%, transparent 25%), linear-gradient(-45deg, #161311 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #161311 75%), linear-gradient(-45deg, transparent 75%, #161311 75%)',
-          backgroundSize: '22px 22px',
-          backgroundPosition: '0 0, 0 11px, 11px -11px, -11px 0',
-        }}
-      >
-        {viewMode === 'original' && (
-          <img src={originalUrl} alt="Original" className="max-w-full max-h-full object-contain shadow-2xl border border-ink-700" />
-        )}
-
-        {viewMode === 'restored' && (
-          <img src={restoredUrl} alt="Restored" className="max-w-full max-h-full object-contain shadow-2xl border border-amber-500/30" />
-        )}
-
-        {viewMode === 'side-by-side' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full h-full">
-            <figure className="flex flex-col items-center justify-center min-h-0 h-full">
-              <figcaption className="mb-2 font-mono text-[9px] uppercase tracking-widest text-ink-500">Original</figcaption>
-              <div className="relative w-full h-full flex items-center justify-center overflow-hidden border border-ink-700">
-                <img src={originalUrl} className="w-full h-full object-cover" alt="Original" />
-              </div>
-            </figure>
-            <figure className="flex flex-col items-center justify-center min-h-0 h-full">
-              <figcaption className="mb-2 font-mono text-[9px] uppercase tracking-widest text-amber-400 flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Restored
-              </figcaption>
-              <div className="relative w-full h-full flex items-center justify-center overflow-hidden border border-amber-500/40">
-                <img src={restoredUrl} className="w-full h-full object-cover" alt="Restored" />
-              </div>
-            </figure>
-          </div>
-        )}
-
-        {viewMode === 'slider' && (
-          <div
-            ref={containerRef}
-            className="relative w-full h-full max-w-4xl max-h-[70vh] cursor-ew-resize select-none overflow-hidden shadow-2xl bg-ink-950 border border-ink-700"
-            onMouseDown={handleMouseDown}
-            onTouchStart={handleTouchStart}
-          >
-            <img src={restoredUrl} alt="Restored" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-            <div className="absolute inset-0 w-full h-full overflow-hidden" style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}>
-              <img src={originalUrl} alt="Original" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-            </div>
-
-            {/* Handle */}
-            <div className="absolute top-0 bottom-0 w-px bg-amber-500 shadow-[0_0_12px_rgba(224,164,88,0.7)] z-20 pointer-events-none" style={{ left: `${sliderPos}%` }}>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-9 h-9 bg-ink-950 border border-amber-500 grid place-items-center shadow-safelight">
-                <MoveHorizontal className="w-4 h-4 text-amber-500" />
-              </div>
-            </div>
-
-            {/* Drag hint */}
-            <span className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-ink-200 bg-ink-950/70 px-2.5 py-1 pointer-events-none">
-              <MoveHorizontal className="w-3 h-3 text-amber-500" /> Drag to compare
-            </span>
-
-            <span className="absolute bottom-3 left-3 font-mono text-[9px] uppercase tracking-widest text-ink-200 bg-ink-950/70 px-2 py-1 pointer-events-none">Original</span>
-            <span className="absolute bottom-3 right-3 font-mono text-[9px] uppercase tracking-widest text-ink-950 bg-amber-500 px-2 py-1 pointer-events-none">Restored</span>
-          </div>
-        )}
-      </div>
-    </div>
+    </section>
   );
 };

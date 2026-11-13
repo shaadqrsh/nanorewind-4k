@@ -6,7 +6,7 @@ import type { ImageFile } from '../types';
 
 const fetchBlob = async (url: string): Promise<Blob> => {
   const res = await fetch(url);
-  if (!res.ok) throw new Error('This image link has expired. Reopen the archive and try again.');
+  if (!res.ok) throw new Error('This image link has expired. Open your album again and retry.');
   return res.blob();
 };
 
@@ -69,6 +69,17 @@ const readAsDataUrl = (file: Blob): Promise<string> =>
     reader.onerror = () => reject(new Error('Could not read this file.'));
     reader.readAsDataURL(file);
   });
+
+// The base64 body and type to send to /api/restore. A photo reopened from the
+// album has a signed storage URL instead of a data URL, so fetch it first.
+export const toUploadData = async (file: ImageFile): Promise<{ data: string; mimeType: string }> => {
+  if (file.previewUrl.startsWith('data:')) {
+    return { data: file.previewUrl.split(',')[1], mimeType: file.mimeType };
+  }
+  const blob = await fetchBlob(file.previewUrl);
+  const dataUrl = await readAsDataUrl(blob);
+  return { data: dataUrl.split(',')[1], mimeType: blob.type || file.mimeType || 'image/jpeg' };
+};
 
 const dataUrlBytes = (dataUrl: string) => Math.ceil(((dataUrl.length - dataUrl.indexOf(',') - 1) * 3) / 4);
 

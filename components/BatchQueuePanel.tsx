@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Check, X, Plus, AlertCircle, Clock, Loader2, Ban } from 'lucide-react';
+import { X } from 'lucide-react';
 import { QueueItem } from '../hooks/useBatchQueue';
 import { MAX_BATCH } from './Dropzone';
 import { UPLOAD_TYPES } from '../utils/image';
@@ -14,15 +14,15 @@ interface BatchQueuePanelProps {
   onClear: () => void;
 }
 
-const STATUS: Record<QueueItem['status'], { label: string; cls: string; Icon: typeof Check }> = {
-  queued: { label: 'Waiting', cls: 'text-ink-400', Icon: Clock },
-  restoring: { label: 'Restoring', cls: 'text-amber-400', Icon: Loader2 },
-  done: { label: 'Done', cls: 'text-patina-400', Icon: Check },
-  failed: { label: 'Failed', cls: 'text-rust-400', Icon: AlertCircle },
-  skipped: { label: 'No credits left', cls: 'text-ink-400', Icon: Ban },
+const STATUS: Record<QueueItem['status'], { label: string; cls: string }> = {
+  queued: { label: 'Waiting', cls: 'text-bone-3' },
+  restoring: { label: 'Restoring', cls: 'text-brass' },
+  done: { label: 'Done', cls: 'text-sage' },
+  failed: { label: 'Failed', cls: 'text-rust' },
+  skipped: { label: 'Waiting for credits', cls: 'text-bone-3' },
 };
 
-// The left-rail list for a batch: one row per photo with its status.
+// The photo list for a batch: one row per photo with its status.
 export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
   items, isRunning, selectedId, onSelect, onRemove, onAddFiles, onClear,
 }) => {
@@ -31,22 +31,20 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
   const room = MAX_BATCH - items.length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between px-1 pb-2">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-ink-400" aria-live="polite">
-          {done} of {items.length} restored
-        </span>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[15px] text-bone-2" aria-live="polite">{done} of {items.length} restored</p>
         {!isRunning && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 text-[15px]">
             {room > 0 && (
-              <button onClick={() => inputRef.current?.click()}
-                className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-ink-400 hover:text-amber-400 transition-colors">
-                <Plus className="w-3 h-3" /> Add
+              <button type="button" onClick={() => inputRef.current?.click()}
+                className="text-bone-2 underline decoration-rule decoration-[1.5px] underline-offset-4 hover:text-bone hover:decoration-bone-3">
+                Add photos
               </button>
             )}
-            <button onClick={onClear}
-              className="font-mono text-[10px] uppercase tracking-widest text-ink-400 hover:text-rust-400 transition-colors">
-              Clear
+            <button type="button" onClick={onClear}
+              className="text-bone-2 underline decoration-rule decoration-[1.5px] underline-offset-4 hover:text-rust hover:decoration-rust">
+              Clear all
             </button>
           </div>
         )}
@@ -58,37 +56,36 @@ export const BatchQueuePanel: React.FC<BatchQueuePanelProps> = ({
           }} />
       </div>
 
-      <ul className="max-h-56 overflow-y-auto border border-ink-800 divide-y divide-ink-800/70">
+      <ul className="max-h-72 overflow-y-auto -mx-2 px-2 py-1 flex flex-col gap-1">
         {items.map((item) => {
           const s = STATUS[item.status];
           const selected = item.id === selectedId;
+          const label = item.status === 'failed' && item.error ? item.error
+            : item.status === 'done' && item.restoration === null ? 'Done, but not saved to your album'
+              : s.label;
           return (
-            <li key={item.id} className={`group relative flex items-center gap-3 pr-2 border-l-2 transition-colors
-              ${selected ? 'bg-amber-500/[0.06] border-amber-500' : 'border-transparent hover:bg-ink-850/60'}`}>
-              <button onClick={() => onSelect(item.id)} aria-current={selected || undefined}
-                className="flex flex-1 min-w-0 items-center gap-3 py-2 pl-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-500/60">
-                <img src={item.file.previewUrl} alt="" className="w-10 h-10 shrink-0 object-cover border border-ink-700" />
+            <li key={item.id}
+              className={`group relative flex items-center gap-2 rounded-md transition-colors
+                ${selected ? 'bg-page outline outline-[1.5px] outline-brass' : 'hover:bg-page'}`}>
+              <button type="button" onClick={() => onSelect(item.id)} aria-current={selected || undefined}
+                className="flex flex-1 min-w-0 items-center gap-3.5 py-2.5 pl-3 pr-1 text-left rounded-md">
+                <span className="mount mount-xs shrink-0 block w-11">
+                  <img src={item.file.previewUrl} alt="" className="block w-11 h-11 object-cover" />
+                </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[12px] text-ink-200 truncate">{item.file.name}</span>
-                  <span className={`flex items-center gap-1 text-[11px] ${s.cls}`}>
-                    <s.Icon className={`w-3 h-3 shrink-0 ${item.status === 'restoring' ? 'animate-spin' : ''}`} />
-                    <span className="truncate">
-                      {item.status === 'failed' && item.error ? item.error
-                        : item.status === 'done' && item.restoration === null ? 'Done, not saved to archive'
-                          : s.label}
-                    </span>
-                  </span>
+                  <span className="block text-[15px] truncate">{item.file.name}</span>
+                  <span className={`block text-sm truncate ${s.cls}`}>{label}</span>
                 </span>
               </button>
               {item.status !== 'restoring' && !isRunning && (
-                <button onClick={() => onRemove(item.id)} aria-label={`Remove ${item.file.name}`}
-                  className="p-1 text-ink-500 hover:text-rust-400 opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
-                  <X className="w-3.5 h-3.5" />
+                <button type="button" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.file.name}`}
+                  className="shrink-0 grid place-items-center w-8 h-8 mr-1.5 rounded-full text-bone-3 hover:text-rust hover:bg-panel">
+                  <X className="w-4 h-4" />
                 </button>
               )}
               {item.status === 'restoring' && (
-                <span className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden" aria-hidden="true">
-                  <span className="block h-full w-1/3 bg-amber-500 animate-progress" />
+                <span className="absolute inset-x-3 bottom-1 h-0.5 overflow-hidden rounded-full bg-rule" aria-hidden="true">
+                  <span className="block h-full w-1/3 bg-brass animate-progress" />
                 </span>
               )}
             </li>

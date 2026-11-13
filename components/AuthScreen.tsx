@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { History, ArrowRight, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { authService } from '../services/auth';
 import { Button } from './Button';
-import { BeforeAfterShowcase } from './BeforeAfterShowcase';
+import { Notice } from './Modal';
+import { inputCls, labelCls } from './SettingsModal';
+import { PhotoSpread } from './PhotoSpread';
+import { Wordmark } from './Wordmark';
 
 export type AuthState = 'login' | 'signup';
 
@@ -13,8 +16,18 @@ interface AuthScreenProps {
   onBack: () => void;
 }
 
+type Screen = AuthState | 'forgot';
+
+const TITLES: Record<Screen, { h1: string; sub: string; crumb: string }> = {
+  login: { h1: 'Sign in', sub: 'Sign in to restore photos and open your album.', crumb: 'Sign in' },
+  signup: { h1: 'Create an account', sub: 'Free, with 3 restorations a day. No card needed.', crumb: 'Create an account' },
+  forgot: { h1: 'Reset your password', sub: "Enter your email and we'll send you a link to choose a new password.", crumb: 'Reset password' },
+};
+
+const linkCls = 'underline decoration-rule decoration-[1.5px] underline-offset-4 hover:decoration-bone-3';
+
 export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, notice, onAuthSuccess, onBack }) => {
-  const [view, setView] = useState<AuthState>(initialView);
+  const [screen, setScreen] = useState<Screen>(initialView);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,8 +36,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, notice, onA
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
+  const switchTo = (next: Screen) => {
+    setError(null);
+    setSuccessMsg(null);
+    setShowPassword(false);
+    setScreen(next);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +51,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, notice, onA
     setIsLoading(true);
 
     try {
-      if (view === 'login') {
+      if (screen === 'login') {
         const data = await authService.signIn({ email, password });
         if (data.session) onAuthSuccess();
       } else {
@@ -42,13 +59,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, notice, onA
         if (data.session) {
           onAuthSuccess();
         } else if (data.user) {
-          setSuccessMsg("Account created. Check your inbox and open the link in this browser.");
-          setView('login');
+          setSuccessMsg('Account created. Check your inbox and open the link in this browser to finish.');
+          setScreen('login');
           setIsLoading(false);
         }
       }
-    } catch (err: any) {
-      setError(err.message || "Authentication failed");
+    } catch (err) {
+      setError((err as Error).message || 'Something went wrong. Try again.');
       setIsLoading(false);
     }
   };
@@ -60,175 +77,120 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, notice, onA
     setError(null);
     setSuccessMsg(null);
     try {
-      await authService.resetPassword(resetEmail);
-      setSuccessMsg("Reset email sent. Open the link in this browser.");
-      setShowForgotModal(false);
-      setResetEmail('');
-    } catch (err: any) {
-      setError(err.message || "Failed to send reset email");
+      await authService.resetPassword(email);
+      setSuccessMsg(`Reset email sent to ${email}. Open the link in this browser.`);
+      setScreen('login');
+    } catch (err) {
+      setError((err as Error).message || 'The email could not be sent. Try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const toggleView = () => {
-    setError(null);
-    setSuccessMsg(null);
-    setShowPassword(false);
-    setView(view === 'login' ? 'signup' : 'login');
-  };
-
-  const inputCls =
-    "w-full bg-ink-950/70 border border-ink-700 px-4 py-3 text-sm text-ink-100 " +
-    "placeholder:text-ink-600 outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 transition-colors";
-  const labelCls = "block font-mono text-[10px] uppercase tracking-widest text-ink-500 mb-2";
-
-  if (showForgotModal) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="relative w-full max-w-md bg-ink-900 border border-ink-700 shadow-plate p-8 animate-rise">
-          <div className="absolute inset-0 hairline pointer-events-none" />
-          <h2 className="font-display text-2xl font-semibold text-ink-100 mb-2 text-center">Recover access</h2>
-          <p className="text-ink-400 text-center mb-6 text-sm leading-relaxed">
-            Enter your email and we'll send a link to reset your password.
-          </p>
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div>
-              <label className={labelCls}>Email</label>
-              <input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className={inputCls} placeholder="you@example.com" required />
-            </div>
-            {error && <div className="text-rust-400 text-xs bg-rust-500/10 border border-rust-500/30 px-3 py-2">{error}</div>}
-            <div className="flex gap-3 pt-1">
-              <button type="button" onClick={() => setShowForgotModal(false)} disabled={isLoading}
-                className="flex-1 py-3 font-mono text-[12px] uppercase tracking-widest border border-ink-700 text-ink-300 hover:bg-ink-800 transition-colors">
-                Cancel
-              </button>
-              <Button type="submit" className="flex-1" isLoading={isLoading} disabled={isLoading}>Send email</Button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  }
+  const t = TITLES[screen];
+  const home = (e: React.MouseEvent) => { e.preventDefault(); onBack(); };
 
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden grid lg:grid-cols-2">
-
-      {/* Left - editorial atmosphere panel */}
-      <aside className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden border-r border-ink-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.07] via-transparent to-patina-500/[0.04]" />
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-500/10 blur-[120px] animate-safelight-pulse" />
-
-        <button onClick={onBack} title="Back to home" className="relative self-start flex items-center gap-3 group">
-          <div className="grid place-items-center w-10 h-10 bg-ink-900 border border-ink-700 shadow-safelight group-hover:border-amber-500/50 transition-colors">
-            <History className="w-5 h-5 text-amber-500" strokeWidth={2} />
-          </div>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-400 group-hover:text-amber-400 transition-colors">NanoRewind</span>
-        </button>
-
-        <div className="relative">
-          <h2 className="font-display text-4xl xl:text-5xl font-light leading-[1.05] text-ink-100 text-balance">
-            Bring faded<br />
-            <span className="italic font-normal text-amber-400">photographs</span> back to life.
-          </h2>
-          <p className="mt-5 max-w-sm text-ink-400 leading-relaxed text-[15px]">
-            Upload an old photo and get a cleaned-up, sharper version back in seconds.
-          </p>
-
-          {/* Live showcase — auto-sweeping before/after */}
-          <BeforeAfterShowcase
-            beforeSrc="/showcase/before.png"
-            afterSrc="/showcase/after.png"
-            className="mt-8 max-w-md animate-rise"
-          />
+    <div className="min-h-dvh grid lg:grid-cols-2">
+      <aside className="hidden lg:flex flex-col justify-between gap-12 p-12 xl:p-16 bg-cover border-r border-rule">
+        <a href="/" onClick={home} className="self-start" aria-label="NanoRewind 4K home"><Wordmark /></a>
+        <div>
+          <p className="font-display text-[clamp(32px,3vw,44px)] leading-[1.06] max-w-[16ch]">Bring old photos back to life</p>
+          <PhotoSpread small className="mt-10 max-w-[520px]" />
         </div>
-
-        <div className="relative flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest text-ink-600">
-          <span>3 free restorations a day</span>
-        </div>
+        <p className="text-[15px] text-bone-3">3 free restorations a day.</p>
       </aside>
 
-      {/* Right - credentials */}
-      <div className="relative flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm animate-rise">
-          {/* Mobile mark */}
-          <button onClick={onBack} title="Back to home" className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="grid place-items-center w-11 h-11 bg-ink-900 border border-ink-700 shadow-safelight">
-              <History className="w-5 h-5 text-amber-500" strokeWidth={2} />
-            </div>
-            <span className="font-display text-xl font-semibold text-ink-100">NanoRewind</span>
-          </button>
+      <div className="flex flex-col px-4 sm:px-12 py-6 sm:py-10">
+        <nav aria-label="Breadcrumb" className="text-[15px]">
+          <ol className="flex flex-wrap items-center gap-2 text-bone-3">
+            <li><a href="/" onClick={home} className="hover:text-bone transition-colors">NanoRewind <span className="text-brass">4K</span></a></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" className="text-bone-2">{t.crumb}</li>
+          </ol>
+        </nav>
 
-          <button onClick={onBack}
-            className="mb-6 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ink-500 hover:text-amber-400 transition-colors">
-            <ArrowLeft className="w-3 h-3" /> Back
-          </button>
+        <div className="flex-1 grid place-items-center py-12">
+          <div className="w-full max-w-sm">
+            <h1 className="font-display text-[34px] leading-tight mb-2">{t.h1}</h1>
+            <p className="text-bone-2 mb-8">{t.sub}</p>
 
-          <h1 className="font-display text-3xl font-semibold text-ink-100 mb-1.5">
-            {view === 'login' ? 'Sign in' : 'Create an account'}
-          </h1>
-          <p className="text-ink-500 text-sm mb-8">
-            {view === 'login' ? 'Sign in to restore your photos.' : 'Sign up to start restoring photos.'}
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {view === 'signup' && (
-              <div>
-                <label className={labelCls}>Name</label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="Your name" required />
-              </div>
-            )}
-            <div>
-              <label className={labelCls}>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="you@example.com" required />
-            </div>
-            <div>
-              <label className={labelCls}>Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`${inputCls} pr-11`}
-                  placeholder={view === 'signup' ? '8 to 72 characters' : '••••••••'}
-                  minLength={view === 'signup' ? 8 : undefined}
-                  maxLength={view === 'signup' ? 72 : undefined}
-                  autoComplete={view === 'signup' ? 'new-password' : 'current-password'}
-                  required
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-ink-300 transition-colors">
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {view === 'login' && (
-                <div className="flex justify-end mt-2">
-                  <button type="button" onClick={() => setShowForgotModal(true)}
-                    className="font-mono text-[10px] uppercase tracking-widest text-ink-500 hover:text-amber-400 transition-colors">
-                    Forgot password?
-                  </button>
+            {screen === 'forgot' ? (
+              <form onSubmit={handleResetPassword} className="flex flex-col gap-5">
+                <div>
+                  <label htmlFor="reset-email" className={labelCls}>Email</label>
+                  <input id="reset-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    className={inputCls} placeholder="you@example.com" autoComplete="email" required autoFocus />
                 </div>
-              )}
-            </div>
+                {error && <Notice tone="error">{error}</Notice>}
+                <Button type="submit" className="w-full" isLoading={isLoading}>Send reset link</Button>
+                <button type="button" onClick={() => switchTo('login')} disabled={isLoading}
+                  className={`self-center text-[15px] text-bone-2 ${linkCls}`}>
+                  Back to sign in
+                </button>
+              </form>
+            ) : (
+              <>
+                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                  {screen === 'signup' && (
+                    <div>
+                      <label htmlFor="auth-name" className={labelCls}>Name</label>
+                      <input id="auth-name" type="text" value={name} onChange={(e) => setName(e.target.value)}
+                        className={inputCls} placeholder="Your name" autoComplete="name" required />
+                    </div>
+                  )}
+                  <div>
+                    <label htmlFor="auth-email" className={labelCls}>Email</label>
+                    <input id="auth-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                      className={inputCls} placeholder="you@example.com" autoComplete="email" required />
+                  </div>
+                  <div>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <label htmlFor="auth-password" className={labelCls}>Password</label>
+                      {screen === 'login' && (
+                        <button type="button" onClick={() => switchTo('forgot')} className={`mb-2 text-sm text-bone-2 ${linkCls}`}>
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="auth-password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className={`${inputCls} pr-12`}
+                        placeholder={screen === 'signup' ? '8 to 72 characters' : ''}
+                        minLength={screen === 'signup' ? 8 : undefined}
+                        maxLength={screen === 'signup' ? 72 : undefined}
+                        autoComplete={screen === 'signup' ? 'new-password' : 'current-password'}
+                        required
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center w-9 h-9 rounded-full text-bone-3 hover:text-bone">
+                        {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+                      </button>
+                    </div>
+                  </div>
 
-            {error && <div className="text-rust-400 text-xs bg-rust-500/10 border border-rust-500/30 px-3 py-2">{error}</div>}
-            {successMsg && (
-              <div className="flex items-center gap-2 text-patina-400 text-xs bg-patina-500/10 border border-patina-500/30 px-3 py-2.5">
-                <CheckCircle2 className="w-4 h-4 shrink-0" /> {successMsg}
-              </div>
+                  {error && <Notice tone="error">{error}</Notice>}
+                  {successMsg && <Notice tone="ok">{successMsg}</Notice>}
+
+                  <Button type="submit" className="w-full mt-1" isLoading={isLoading}>
+                    {screen === 'login' ? 'Sign in' : 'Create account'}
+                  </Button>
+                </form>
+
+                <p className="mt-8 pt-6 border-t border-rule text-center text-[15px] text-bone-2">
+                  {screen === 'login' ? 'New here? ' : 'Already have an account? '}
+                  <button type="button" onClick={() => switchTo(screen === 'login' ? 'signup' : 'login')} disabled={isLoading}
+                    className={`font-bold text-bone ${linkCls}`}>
+                    {screen === 'login' ? 'Create an account' : 'Sign in'}
+                  </button>
+                </p>
+              </>
             )}
-
-            <Button type="submit" className="w-full" isLoading={isLoading} icon={ArrowRight} disabled={isLoading}>
-              {view === 'login' ? "Sign in" : "Create account"}
-            </Button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-ink-800 text-center">
-            <button onClick={toggleView} disabled={isLoading}
-              className="text-sm text-ink-500 hover:text-amber-400 transition-colors">
-              {view === 'login' ? "Need an account? " : "Already registered? "}
-              <span className="text-ink-300">{view === 'login' ? "Sign up" : "Sign in"}</span>
-            </button>
           </div>
         </div>
       </div>

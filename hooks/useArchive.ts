@@ -43,7 +43,7 @@ export function useArchive(): ArchiveState {
       fetchedAt.current = Date.now();
       setStatus('ready');
     } catch (err) {
-      setError(message(err, 'Could not load your archive'));
+      setError(message(err, 'Your album could not be loaded'));
       setStatus('error');
     }
   }, []);
@@ -65,7 +65,7 @@ export function useArchive(): ArchiveState {
       setItems(prev => [...prev, ...page.restorations]);
       setHasMore(page.hasMore);
     } catch (err) {
-      setError(message(err, 'Could not load older restorations'));
+      setError(message(err, 'Older photos could not be loaded. Try again.'));
     } finally {
       setIsLoadingMore(false);
     }

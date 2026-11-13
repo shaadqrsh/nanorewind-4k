@@ -1,152 +1,121 @@
-import React, { useState } from 'react';
-import { History, LogOut, AlertTriangle, Settings, Archive } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Countdown } from './Countdown';
+import { Wordmark } from './Wordmark';
+import { Button } from './Button';
+import { Modal } from './Modal';
 import { User } from '../types';
 
+export type AppView = 'restore' | 'album';
+
 interface HeaderProps {
-  user: User | null;
-  quota: { remaining: number; allowed: boolean; nextReset?: number } | null;
+  user: User;
+  quota: { remaining: number; allowed: boolean; nextReset?: number };
+  view: AppView;
+  onNavigate: (view: AppView) => void;
   onLogout: () => void;
   onOpenSettings: () => void;
-  onOpenArchive: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, quota, onLogout, onOpenSettings, onOpenArchive }) => {
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const remaining = quota?.remaining ?? 0;
-  const total = 3;
+const DAILY = 3;
+
+export const Header: React.FC<HeaderProps> = ({ user, quota, view, onNavigate, onLogout, onOpenSettings }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const displayName = user.name || user.email.split('@')[0];
+
+  // Close the account menu on an outside click or Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  const tab = (v: AppView, label: string) => (
+    <a
+      href={v === 'album' ? '#album' : '#'}
+      onClick={(e) => { e.preventDefault(); onNavigate(v); }}
+      aria-current={view === v ? 'page' : undefined}
+      className={`px-3.5 py-2 rounded-full font-bold text-base transition-colors
+        ${view === v ? 'bg-panel text-bone' : 'text-bone-2 hover:text-bone'}`}
+    >
+      {label}
+    </a>
+  );
 
   return (
     <>
-      <header className="relative shrink-0 border-b border-ink-800/80 bg-ink-950/70 backdrop-blur-xl">
-        {/* safelight hairline */}
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+      <header className="shrink-0 bg-cover border-b border-rule">
+        {/* Phones: wordmark and Account on the first row, tabs and credits on the second. */}
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-9 min-h-16 py-2.5 flex flex-wrap items-center gap-x-7 gap-y-2">
+          <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('restore'); }} aria-label="NanoRewind 4K, restore a photo" className="order-1">
+            <Wordmark className="text-[22px] sm:text-2xl" />
+          </a>
 
-        <div className="container mx-auto max-w-7xl px-5 h-[72px] flex items-center justify-between">
+          <nav aria-label="App" className="flex gap-1.5 order-3 sm:order-2">
+            {tab('restore', 'Restore')}
+            {tab('album', 'Album')}
+          </nav>
 
-          {/* Masthead */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5">
-            <div className="relative grid place-items-center w-9 h-9 sm:w-11 sm:h-11 bg-ink-900 border border-ink-700 shadow-safelight">
-              <div className="absolute inset-0 bg-amber-500/5 animate-safelight-pulse" />
-              <History className="relative w-5 h-5 text-amber-500" strokeWidth={2} />
-              {/* corner registration marks */}
-              <span className="absolute top-1 left-1 w-1 h-1 border-t border-l border-ink-600" />
-              <span className="absolute bottom-1 right-1 w-1 h-1 border-b border-r border-ink-600" />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="font-display text-lg sm:text-[22px] leading-none font-semibold text-ink-100 tracking-tight">
-                NanoRewind
-              </h1>
-              <span className="hidden sm:block mt-1 font-mono text-[9px] uppercase tracking-widest text-ink-500">
-                AI photo restoration
-              </span>
-            </div>
-          </div>
+          <p className="order-4 sm:order-3 ml-auto text-[15px] leading-tight text-right" aria-live="polite">
+              {quota.remaining > 0 ? (
+                <>
+                  <b className="text-bone">{quota.remaining} of {DAILY}</b>
+                  <span className="text-bone-2"> <span className="hidden sm:inline">restorations </span>left today</span>
+                </>
+              ) : (
+                <b className="text-bone">None left today</b>
+              )}
+              {quota.nextReset ? (
+                <span className="hidden md:inline text-bone-3"> &nbsp;Refills in <Countdown targetDate={quota.nextReset} /></span>
+              ) : null}
+          </p>
 
-          {/* Controls */}
-          {user && (
-            <div className="flex items-center gap-2 sm:gap-6">
-
-              {/* Exposures-remaining gauge (countdown row hidden on phones for width) */}
-              <div className="flex flex-col items-end">
-                <div className="hidden sm:flex items-center gap-1.5 min-h-[14px]">
-                  {quota?.nextReset ? (
-                    <>
-                      <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Resets in</span>
-                      <Countdown targetDate={quota.nextReset} className="text-ink-400" />
-                    </>
-                  ) : (
-                    <span className="font-mono text-[9px] uppercase tracking-widest text-patina-400">Credits full</span>
-                  )}
-                </div>
-                <div className="sm:mt-1.5 flex items-center gap-2.5" title={`${remaining} of ${total} daily credits left`}>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: total }).map((_, i) => (
-                      <span
-                        key={i}
-                        className={`h-3.5 w-1 ${
-                          i < remaining
-                            ? 'bg-amber-500 shadow-[0_0_6px_rgba(224,164,88,0.6)]'
-                            : 'bg-ink-700'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="font-mono text-[11px] tabular-nums text-ink-400">
-                    <span className={quota?.allowed ? 'text-amber-400' : 'text-rust-400'}>{remaining}</span>
-                    <span className="text-ink-600">/{total}</span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="h-8 w-px bg-ink-800 hidden sm:block" />
-
+            <div ref={menuRef} className="relative order-2 sm:order-4 ml-auto sm:ml-0">
               <button
-                onClick={onOpenArchive}
-                className="flex items-center gap-2 p-2 sm:px-3.5 sm:py-2 text-ink-300 hover:text-amber-400 border border-ink-700 hover:border-amber-500/40 transition-colors"
-                title="Archive"
+                type="button"
+                onClick={() => setMenuOpen(o => !o)}
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                className="flex items-center gap-1.5 min-h-10 pl-[18px] pr-3.5 rounded-full border-[1.5px] border-bone-3 hover:border-bone font-bold text-[15px] transition-colors"
               >
-                <Archive className="w-[18px] h-[18px] sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline font-mono text-[11px] uppercase tracking-widest">Archive</span>
+                Account <ChevronDown className={`w-4 h-4 transition-transform ${menuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
               </button>
-
-              <div className="flex items-center gap-1 sm:gap-3">
-                <div className="hidden sm:flex flex-col items-end leading-tight">
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Signed in as</span>
-                  <span className="text-sm text-ink-200 max-w-[150px] truncate">
-                    {user.name || user.email.split('@')[0]}
-                  </span>
+              {menuOpen && (
+                <div role="menu" className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 bg-panel border border-rule rounded-md py-2 animate-fade-in">
+                  <div className="px-4 pt-1.5 pb-3 border-b border-rule mb-1.5">
+                    <p className="font-bold truncate">{displayName}</p>
+                    <p className="text-sm text-bone-3 truncate">{user.email}</p>
+                  </div>
+                  <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); onOpenSettings(); }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-page transition-colors">
+                    Settings
+                  </button>
+                  <button role="menuitem" type="button" onClick={() => { setMenuOpen(false); setConfirmLogout(true); }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-page text-rust transition-colors">
+                    Sign out
+                  </button>
                 </div>
-
-                <button
-                  onClick={onOpenSettings}
-                  className="p-2 sm:p-2.5 text-ink-400 hover:text-amber-400 border border-transparent hover:border-ink-700 transition-colors"
-                  title="Settings"
-                >
-                  <Settings className="w-[18px] h-[18px]" />
-                </button>
-
-                <button
-                  onClick={() => setShowLogoutConfirm(true)}
-                  className="p-2 sm:p-2.5 text-ink-400 hover:text-rust-400 border border-transparent hover:border-rust-500/40 transition-colors"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-[18px] h-[18px]" />
-                </button>
-              </div>
+              )}
             </div>
-          )}
         </div>
       </header>
 
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-ink-900 border border-ink-700 shadow-plate p-6 animate-rise">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="grid place-items-center w-10 h-10 bg-rust-500/10 border border-rust-500/30">
-                <AlertTriangle className="w-5 h-5 text-rust-400" />
-              </div>
-              <h3 className="font-display text-xl font-semibold text-ink-100">Sign out?</h3>
-            </div>
-            <p className="text-ink-400 text-sm mb-6 leading-relaxed">
-              You'll be signed out and your current photo cleared.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 font-mono text-[12px] uppercase tracking-widest bg-ink-800 border border-ink-700 text-ink-200 hover:bg-ink-700 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => { onLogout(); setShowLogoutConfirm(false); }}
-                className="flex-1 py-2.5 font-mono text-[12px] uppercase tracking-widest bg-transparent border border-rust-500/40 text-rust-400 hover:bg-rust-500/10 transition-colors"
-              >
-                Sign Out
-              </button>
-            </div>
+      {confirmLogout && (
+        <Modal title="Sign out?" size="sm" onClose={() => setConfirmLogout(false)}>
+          <p className="text-bone-2 mb-6">This signs you out and clears the photo you have open. Your album stays saved.</p>
+          <div className="flex gap-3">
+            <Button variant="quiet" className="flex-1" onClick={() => setConfirmLogout(false)}>Cancel</Button>
+            <Button variant="danger" className="flex-1" onClick={() => { setConfirmLogout(false); onLogout(); }}>Sign out</Button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

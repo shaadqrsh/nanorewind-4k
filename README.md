@@ -22,13 +22,13 @@ Restore old, scratched, or blurry photos to crisp 4K in seconds.
 ## ✨ Features
 
 - 🪄 **Photo restoration** — repair old, scratched, or blurry photos.
-- 🎯 **4K output** — full high-resolution restoration.
+- 🎯 **High-resolution output** — sharper, upscaled restorations. (Results are about 1K today; true 4K output is planned for the paid tier.)
 - 🎞️ **Developer processes** — render results in distinct photographic styles: Standard, Silver Gelatin (B&W), Albumen (sepia), Cyanotype, Lumière Autochrome, and Kodachrome 64.
 - 🌗 **Atmospheric modifiers** — optional Chiaroscuro (deeper dramatic shadows) and Matte Emulsion (softened vintage-paper highlights).
-- 🔍 **Before / after compare** — drag-to-reveal slider to inspect the restoration against the original.
-- 🗄️ **Archive** — every restoration is saved to a private library automatically. Reopen any of them in the compare view, or download, share or delete them.
-- 🔗 **Share links** — publish a restoration at `/share/<id>`: a before/after page with link previews. Links are unlisted, not indexed by search engines, and can be turned off at any time.
-- 📚 **Batch restores** — drop up to 10 photos and they restore one after another, each saved to the archive. Large photos are shrunk in the browser to fit the upload limit.
+- 🔍 **Three ways to compare** — a loupe that magnifies the restored photo over the original, a drag-to-reveal slider, and side by side.
+- 🗄️ **Album** — every restoration is saved to a private album automatically. Reopen any of them in the workspace, or download, share or delete them.
+- 🔗 **Share links** — publish a restoration at `/share/<id>`: a before/after page with link previews. Each link gets a generated preview card (before and after in photo corners). Links are unlisted, not indexed by search engines, and can be turned off at any time.
+- 📚 **Batch restores** — drop up to 10 photos and they restore one after another, each saved to the album. Large photos are shrunk in the browser to fit the upload limit.
 - 🎟️ **Daily free credits** — 3 restorations/day, tracked in Supabase.
 - 🔒 **Secure by design** — all auth and database logic runs server-side, with no secrets in the browser. Restore, sign-up, login and password-reset requests are rate-limited per client IP.
 
@@ -62,7 +62,9 @@ npx vercel dev
 > [!NOTE]
 > Plain `npm run dev` runs the frontend only — the `/api` routes require `vercel dev` (or a Vercel deployment).
 
-The landing page features an auto-sweeping before/after demo. Swap in your own example by replacing [`public/showcase/before.png`](public/showcase/before.png) and [`public/showcase/after.png`](public/showcase/after.png) (use the same dimensions for the cleanest reveal).
+The landing page shows a real restoration as a before/after album spread. Swap in your own example by replacing [`public/showcase/before.png`](public/showcase/before.png) and [`public/showcase/after.png`](public/showcase/after.png) (square images work best).
+
+The UI uses Young Serif and Atkinson Hyperlegible from Google Fonts. Both are under the SIL Open Font License; copies (with their licenses) live in [`api/_lib/fonts/`](api/_lib/fonts/) because the share-card renderer needs TTF files.
 
 ## 📦 Deployment
 

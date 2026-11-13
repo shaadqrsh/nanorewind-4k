@@ -13,7 +13,7 @@ export const archiveService = {
   list: async (before?: string): Promise<ArchivePage> => {
     const query = before ? `?before=${encodeURIComponent(before)}` : '';
     const res = await fetch(`/api/restorations${query}`);
-    return expectJson<ArchivePage>(res, 'Could not load your archive');
+    return expectJson<ArchivePage>(res, 'Your album could not be loaded');
   },
 
   // Turns the public link on or off. Returns the new share id, or null when off.

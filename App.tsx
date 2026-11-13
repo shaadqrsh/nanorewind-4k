@@ -2,27 +2,29 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Dropzone } from './components/Dropzone';
 import { BatchQueuePanel } from './components/BatchQueuePanel';
 import { useBatchQueue } from './hooks/useBatchQueue';
-import { prepareUpload, UPLOAD_TYPES } from './utils/image';
-import { Header } from './components/Header';
+import { prepareUpload, toUploadData, UPLOAD_TYPES } from './utils/image';
+import { Header, AppView } from './components/Header';
 import { RestoredView } from './components/RestoredView';
 import { AuthScreen } from './components/AuthScreen';
 import { LandingPage } from './components/LandingPage';
 import { NewPasswordModal } from './components/NewPasswordModal';
 import { ShareDialog } from './components/ShareDialog';
-import { PromptSelector, PromptOptions, toPromptOptions } from './components/PromptSelector';
+import { PromptSelector, PromptOptions, toPromptOptions, sameOptions, processLabel, treatmentLabel } from './components/PromptSelector';
 import { SettingsModal } from './components/SettingsModal';
-import { ArchiveView } from './components/ArchiveView';
+import { AlbumView } from './components/AlbumView';
+import { Modal, Notice } from './components/Modal';
+import { Wordmark } from './components/Wordmark';
+import { SAMPLE_BEFORE } from './components/PhotoSpread';
 import { restoreImage } from './services/gemini';
 import { authService } from './services/auth';
 import { useArchive } from './hooks/useArchive';
 import { SESSION_EXPIRED_EVENT } from './services/http';
 import { ImageFile, Restoration, RestorationStatus, User } from './types';
-import { AlertCircle, Wand2, Check, X, XCircle, Loader2, History } from 'lucide-react';
 import { Button } from './components/Button';
 import { Countdown } from './components/Countdown';
 
-// Signed-out screens live in the URL hash (#signin / #signup) so Back and
-// reloads work without needing SPA rewrites for real paths.
+// Screens live in the URL hash so Back and reloads work without SPA rewrites
+// for real paths: #signin / #signup when signed out, #album when signed in.
 type PublicView = 'landing' | 'signin' | 'signup';
 
 const viewFromHash = (): PublicView =>
@@ -30,11 +32,19 @@ const viewFromHash = (): PublicView =>
     : window.location.hash === '#signup' ? 'signup'
       : 'landing';
 
+const appViewFromHash = (): AppView => (window.location.hash === '#album' ? 'album' : 'restore');
+
+const DEFAULT_OPTIONS: PromptOptions = { process: 'standard', chiaroscuro: false, matte: false };
+
 export const App: React.FC = () => {
   const [publicView, setPublicView] = useState<PublicView>(viewFromHash);
+  const [appView, setAppView] = useState<AppView>(appViewFromHash);
 
   useEffect(() => {
-    const sync = () => setPublicView(viewFromHash());
+    const sync = () => {
+      setPublicView(viewFromHash());
+      setAppView(appViewFromHash());
+    };
     window.addEventListener('hashchange', sync);
     window.addEventListener('popstate', sync);
     return () => {
@@ -48,6 +58,15 @@ export const App: React.FC = () => {
     if (replace) window.history.replaceState(null, '', url);
     else window.history.pushState(null, '', url);
     setPublicView(view);
+    setAppView('restore');
+    window.scrollTo(0, 0);
+  }, []);
+
+  const navigate = useCallback((view: AppView) => {
+    if (view !== appViewFromHash()) {
+      window.history.pushState(null, '', view === 'album' ? '#album' : window.location.pathname + window.location.search);
+    }
+    setAppView(view);
     window.scrollTo(0, 0);
   }, []);
 
@@ -55,7 +74,6 @@ export const App: React.FC = () => {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [configError, setConfigError] = useState<string | null>(null);
 
   const [showSettings, setShowSettings] = useState(false);
   // Set by a password-reset link; asks the user to choose the new password.
@@ -64,11 +82,9 @@ export const App: React.FC = () => {
   const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   const [file, setFile] = useState<ImageFile | null>(null);
-  const [promptOptions, setPromptOptions] = useState<PromptOptions>({
-    process: 'standard',
-    chiaroscuro: false,
-    matte: false
-  });
+  const [promptOptions, setPromptOptions] = useState<PromptOptions>(DEFAULT_OPTIONS);
+  // The treatment the result on screen was made with (null when unknown).
+  const [resultOptions, setResultOptions] = useState<PromptOptions | null>(null);
 
   const [restoredImage, setRestoredImage] = useState<string | null>(null);
   const [status, setStatus] = useState<RestorationStatus>('idle');
@@ -77,7 +93,6 @@ export const App: React.FC = () => {
   const [showZeroCreditsModal, setShowZeroCreditsModal] = useState(false);
 
   const archive = useArchive();
-  const [showArchive, setShowArchive] = useState(false);
   // Archive id of the result in the workspace; null for unsaved or no result.
   const [activeRestorationId, setActiveRestorationId] = useState<string | null>(null);
   // The restoration whose share dialog is open. Looked up in the archive so the
@@ -92,6 +107,8 @@ export const App: React.FC = () => {
   const inBatch = batch.items.length > 0;
   const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
   const selectedItem = selectedQueueId ? batch.items.find(i => i.id === selectedQueueId) ?? null : null;
+  const batchOptions = useRef<PromptOptions | null>(null);
+  const replaceRef = useRef<HTMLInputElement>(null);
   const addMoreRef = useRef<HTMLInputElement>(null);
 
   const refreshQuota = useCallback(async () => {
@@ -141,12 +158,26 @@ export const App: React.FC = () => {
       }
     };
     init();
-    document.documentElement.classList.add('dark');
   }, [refreshQuota, goTo]);
 
-  // One photo: the single-photo flow. Several (or adding to an existing batch):
-  // the queue. Large photos are shrunk to fit the upload limit first.
-  const handleFilesSelect = useCallback(async (files: File[]) => {
+  // Load the album when it's opened (by the tab, a link or the Back button).
+  useEffect(() => {
+    if (isSignedIn && appView === 'album') archive.ensureFresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, appView]);
+
+  const handleReset = () => {
+    setFile(null);
+    setRestoredImage(null);
+    setStatus('idle');
+    setError(null);
+    setActiveRestorationId(null);
+    setResultOptions(null);
+  };
+
+  // One photo: the single-photo flow, replacing what's open. Several, or "add
+  // more" next to an open photo: the queue. Large photos are shrunk first.
+  const handleFilesSelect = useCallback(async (files: File[], addToCurrent = false) => {
     setError(null);
     refreshQuota(); // credits may have refilled since the page loaded
     const prepared: ImageFile[] = [];
@@ -159,16 +190,17 @@ export const App: React.FC = () => {
     }
     if (prepared.length === 0) return;
 
-    if (prepared.length === 1 && !inBatch) {
+    if (prepared.length === 1 && !inBatch && !addToCurrent) {
       setFile(prepared[0]);
       setRestoredImage(null);
       setStatus('idle');
       setActiveRestorationId(null);
+      setResultOptions(null);
       return;
     }
 
     // Starting a batch: bring along a single uploaded photo that hasn't been
-    // restored yet (archived photos have a storage URL, not a data URL).
+    // restored yet (album photos have a storage URL, not a data URL).
     const carry = !inBatch && file && status !== 'success' && file.previewUrl.startsWith('data:') ? [file] : [];
     const added = batch.add([...carry, ...prepared]);
     if (!selectedItem) setSelectedQueueId(added[0].id);
@@ -198,6 +230,8 @@ export const App: React.FC = () => {
     setRestoredImage(selectedItem.image ?? null);
     setStatus(selectedItem.status === 'restoring' ? 'loading' : selectedItem.status === 'done' ? 'success' : 'idle');
     setActiveRestorationId(selectedItem.restoration?.id ?? null);
+    setResultOptions(selectedItem.restoration ? toPromptOptions(selectedItem.restoration)
+      : selectedItem.status === 'done' ? batchOptions.current : null);
     setError(null);
   }, [selectedItem]);
 
@@ -221,8 +255,12 @@ export const App: React.FC = () => {
     }
     setError(null);
     const options = promptOptions; // every photo in this run gets the same style
+    batchOptions.current = options;
     await batch.run(
-      (f) => restoreImage(f.previewUrl.split(',')[1], f.mimeType, f.name, options),
+      async (f) => {
+        const { data, mimeType } = await toUploadData(f);
+        return restoreImage(data, mimeType, f.name, options);
+      },
       (item) => {
         if (item.restoration) archive.add(item.restoration);
         refreshQuota();
@@ -241,33 +279,26 @@ export const App: React.FC = () => {
 
       if (!file) return;
 
+      const options = promptOptions;
       setStatus('loading');
       setError(null);
       setRestoredImage(null);
       setActiveRestorationId(null);
 
-      const base64Data = file.previewUrl.split(',')[1];
-
-      const { image, restoration } = await restoreImage(base64Data, file.mimeType, file.name, promptOptions);
+      const { data, mimeType } = await toUploadData(file);
+      const { image, restoration } = await restoreImage(data, mimeType, file.name, options);
       await refreshQuota();
       setRestoredImage(image);
+      setResultOptions(options);
       if (restoration) {
         archive.add(restoration);
         setActiveRestorationId(restoration.id);
       }
       setStatus('success');
-    } catch (err: any) {
-      setError(err.message || "Restoration failed.");
+    } catch (err) {
+      setError((err as Error).message || 'The restoration failed. Try again.');
       setStatus('error');
     }
-  };
-
-  const handleReset = () => {
-    setFile(null);
-    setRestoredImage(null);
-    setStatus('idle');
-    setError(null);
-    setActiveRestorationId(null);
   };
 
   // Drops all signed-in state and returns to the home page.
@@ -278,7 +309,7 @@ export const App: React.FC = () => {
     setRestoredImage(null);
     setStatus('idle');
     setActiveRestorationId(null);
-    setShowArchive(false);
+    setResultOptions(null);
     setShowSettings(false);
     setShareTargetId(null);
     batch.stop();
@@ -301,22 +332,19 @@ export const App: React.FC = () => {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, clearSignedInState);
   }, [clearSignedInState]);
 
-  const handleOpenArchive = () => {
-    setShowArchive(true);
-    archive.ensureFresh();
-  };
-
-  // Loads an archived plate into the workspace with its original treatment.
+  // Loads an album photo into the workspace with its original treatment.
   const handleSelectRestoration = (r: Restoration) => {
     if (status === 'loading' || batch.isRunning || !r.originalUrl || !r.restoredUrl) return;
     setSelectedQueueId(null); // leave the queue view (the queue itself stays)
     setFile({ previewUrl: r.originalUrl, name: r.originalName ?? 'photo', mimeType: '' });
     setRestoredImage(r.restoredUrl);
-    setPromptOptions(toPromptOptions(r));
+    const options = toPromptOptions(r);
+    setPromptOptions(options);
+    setResultOptions(options);
     setStatus('success');
     setError(null);
     setActiveRestorationId(r.id);
-    setShowArchive(false);
+    navigate('restore');
   };
 
   const handleDeleteRestoration = async (id: string) => {
@@ -341,28 +369,15 @@ export const App: React.FC = () => {
     setIsDataLoaded(true);
   };
 
-  if (configError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-ink-900 border border-ink-700 p-6 flex items-center gap-3 max-w-md shadow-plate">
-          <AlertCircle className="text-rust-400 w-6 h-6 shrink-0" />
-          <p className="text-ink-300 text-sm">{configError}</p>
-        </div>
-      </div>
-    );
-  }
-
   if (!isAuthReady || (isSignedIn && !isDataLoaded)) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-5">
-        <div className="relative grid place-items-center w-16 h-16">
-          <div className="absolute inset-0 border border-ink-700" />
-          <div className="absolute inset-0 border-t border-amber-500 animate-spin" />
-          <History className="w-6 h-6 text-amber-500" strokeWidth={2} />
+      <div className="min-h-dvh grid place-items-center p-6" role="status" aria-label="Loading">
+        <div className="flex flex-col items-center gap-6">
+          <Wordmark className="text-3xl" />
+          <span className="block w-40 h-0.5 overflow-hidden rounded-full bg-rule" aria-hidden="true">
+            <span className="block h-full w-1/3 bg-brass animate-progress" />
+          </span>
         </div>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-ink-500 animate-pulse">
-          Loading…
-        </p>
       </div>
     );
   }
@@ -387,190 +402,167 @@ export const App: React.FC = () => {
   const pending = batch.items.filter(i => i.status === 'queued' || i.status === 'skipped').length;
   const left = batch.items.filter(i => i.status === 'queued' || i.status === 'restoring').length;
   const plural = (n: number) => `${n} photo${n === 1 ? '' : 's'}`;
-
-  const buttonConfig = inBatch
-    ? batch.isRunning
-      ? { text: `Restoring… ${left} left`, icon: Wand2, variant: 'primary' as const, disabled: true }
-      : pending === 0
-        ? { text: 'All done', icon: Check, variant: 'primary' as const, disabled: true }
-        : !quota.allowed
-          ? { text: 'No credits left', icon: XCircle, variant: 'danger' as const, disabled: true }
-          : { text: `Restore ${plural(pending)}`, icon: Wand2, variant: 'primary' as const, disabled: false }
-    : !quota.allowed
-      ? { text: 'No credits left', icon: XCircle, variant: 'danger' as const, disabled: true }
-      : status === 'loading'
-        ? { text: 'Restoring…', icon: Wand2, variant: 'primary' as const, disabled: true }
-        : status === 'success'
-          ? { text: 'Done', icon: Check, variant: 'primary' as const, disabled: true }
-          : { text: 'Restore photo', icon: Wand2, variant: 'primary' as const, disabled: !file };
   const isRestoring = inBatch ? batch.isRunning : status === 'loading';
 
+  // What the main button does right now.
+  const changed = status === 'success' && resultOptions !== null && !sameOptions(promptOptions, resultOptions);
+  const button: { text: string; variant: 'primary' | 'quiet'; disabled: boolean } = inBatch
+    ? batch.isRunning
+      ? { text: `Restoring, ${left} to go`, variant: 'primary', disabled: true }
+      : pending === 0
+        ? { text: 'All done', variant: 'quiet', disabled: true }
+        : !quota.allowed
+          ? { text: 'No restorations left today', variant: 'quiet', disabled: true }
+          : { text: `Restore ${plural(pending)}`, variant: 'primary', disabled: false }
+    : !quota.allowed
+      ? { text: 'No restorations left today', variant: 'quiet', disabled: true }
+      : status === 'loading'
+        ? { text: 'Restoring', variant: 'primary', disabled: true }
+        : status === 'success'
+          ? changed
+            ? {
+                text: promptOptions.process !== resultOptions!.process
+                  ? `Restore in ${processLabel(promptOptions.process).toLowerCase()}`
+                  : 'Restore with these extras',
+                variant: 'primary', disabled: false,
+              }
+            : { text: 'Restore again', variant: 'quiet', disabled: false }
+          : { text: 'Restore photo', variant: 'primary', disabled: !file };
+
+  const linkCls = 'text-bone-2 underline decoration-rule decoration-[1.5px] underline-offset-4 hover:text-bone hover:decoration-bone-3';
+  const pickFiles = (addToCurrent: boolean) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length) handleFilesSelect(files, addToCurrent);
+  };
+
   return (
-    <div className="min-h-screen md:h-screen flex flex-col font-sans text-ink-200 md:overflow-hidden">
+    <div className="min-h-dvh flex flex-col">
       <Header
-        user={user}
+        user={user!}
         quota={quota}
+        view={appView}
+        onNavigate={navigate}
         onLogout={handleLogout}
         onOpenSettings={() => setShowSettings(true)}
-        onOpenArchive={handleOpenArchive}
       />
 
-      <main className="flex-grow md:overflow-hidden container mx-auto max-w-7xl px-5 py-5">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full">
-
-          {/* Left rail - controls */}
-          <div className="lg:col-span-4 flex flex-col h-full gap-5 md:overflow-hidden animate-rise">
-
-            {/* 01 - Plate */}
-            <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate shrink-0">
-              <div className="absolute inset-0 hairline pointer-events-none" />
-              <header className="flex items-center gap-3 px-4 py-3.5 border-b border-ink-800">
-                <span className="font-mono text-[11px] text-amber-500/80">1</span>
-                <h2 className="font-display text-base font-semibold text-ink-100">{inBatch ? 'Upload photos' : 'Upload a photo'}</h2>
-              </header>
-              <div className="p-3">
-                {inBatch ? (
-                  <BatchQueuePanel
-                    items={batch.items}
-                    isRunning={batch.isRunning}
-                    selectedId={selectedQueueId}
-                    onSelect={setSelectedQueueId}
-                    onRemove={handleRemoveQueueItem}
-                    onAddFiles={handleFilesSelect}
-                    onClear={handleClearBatch}
-                  />
-                ) : !file ? (
-                  <div className="h-40"><Dropzone onFilesSelect={handleFilesSelect} /></div>
-                ) : (
-                  <>
-                  <div className="relative group h-40 bg-ink-950 overflow-hidden border border-ink-700">
-                    <img src={file.previewUrl} alt="Your uploaded photo" className="w-full h-full object-contain" />
-                    {status !== 'loading' && (
-                      <button
-                        onClick={handleReset}
-                        title="Remove photo"
-                        className="absolute top-2 right-2 grid place-items-center w-7 h-7 bg-ink-950/80 border border-ink-600 text-ink-300 hover:text-rust-400 hover:border-rust-500/50 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                    <span className="absolute bottom-1.5 left-1.5 font-mono text-[9px] text-ink-300 bg-ink-950/70 px-1.5 py-0.5">
-                      Original
-                    </span>
-                  </div>
-                  {status !== 'loading' && (
-                    <>
-                      <button onClick={() => addMoreRef.current?.click()}
-                        className="mt-2 font-mono text-[10px] uppercase tracking-widest text-ink-400 hover:text-amber-400 transition-colors">
-                        + Add more photos
-                      </button>
-                      <input ref={addMoreRef} type="file" multiple className="hidden" accept={UPLOAD_TYPES.join(', ')}
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files ?? []);
-                          e.target.value = '';
-                          if (files.length) handleFilesSelect(files);
-                        }} />
-                    </>
-                  )}
-                  </>
-                )}
-              </div>
+      {appView === 'album' ? (
+        <AlbumView
+          archive={archive}
+          activeId={activeRestorationId}
+          canSelect={status !== 'loading' && !batch.isRunning}
+          onSelect={handleSelectRestoration}
+          onDelete={handleDeleteRestoration}
+          onShare={(r) => setShareTargetId(r.id)}
+          onRestoreNew={() => navigate('restore')}
+        />
+      ) : (
+        <main className="flex-1 mx-auto w-full max-w-[1440px] px-4 sm:px-9 pt-8 pb-16 grid gap-9 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14 lg:items-start">
+          {file ? (
+            <RestoredView
+              title="Restore a photo"
+              originalUrl={file.previewUrl}
+              originalName={file.name}
+              restoredUrl={restoredImage}
+              status={status}
+              archived={activeRestorationId !== null}
+              treatment={resultOptions ? treatmentLabel(resultOptions) : null}
+              onRemove={selectedItem ? () => handleRemoveQueueItem(selectedItem.id) : handleReset}
+              onShare={activeRestorationId ? () => setShareTargetId(activeRestorationId) : undefined}
+            />
+          ) : (
+            <section className="flex flex-col gap-6 min-w-0" aria-label="Your photo">
+              <h1 className="font-display text-[clamp(30px,3.4vw,40px)] leading-[1.05]">Restore a photo</h1>
+              <div className="py-2 sm:py-6"><Dropzone onFilesSelect={(f) => handleFilesSelect(f)} /></div>
             </section>
+          )}
 
-            {/* 02 - Treatment ledger */}
-            <div className="flex-grow md:overflow-y-auto pr-1 -mr-1">
-              <PromptSelector options={promptOptions} onChange={setPromptOptions} />
-            </div>
+          <aside className="bg-panel rounded-md min-w-0 lg:sticky lg:top-6" aria-label="Restoration settings">
+            {inBatch ? (
+              <section className="flex flex-col gap-3.5 p-[22px] border-b border-rule">
+                <h2 className="font-display text-[21px] leading-tight">Your photos</h2>
+                <BatchQueuePanel
+                  items={batch.items}
+                  isRunning={batch.isRunning}
+                  selectedId={selectedQueueId}
+                  onSelect={setSelectedQueueId}
+                  onRemove={handleRemoveQueueItem}
+                  onAddFiles={(f) => handleFilesSelect(f, true)}
+                  onClear={handleClearBatch}
+                />
+              </section>
+            ) : file && (
+              <section className="flex flex-col gap-3.5 p-[22px] border-b border-rule">
+                <h2 className="font-display text-[21px] leading-tight">Your photo</h2>
+                <div className="flex gap-4 items-center">
+                  <span className="mount mount-xs block shrink-0 w-16">
+                    <img src={file.previewUrl} alt="" className="block w-16 h-16 object-cover" />
+                  </span>
+                  <div className="min-w-0 flex flex-col gap-1 text-[15px]">
+                    <span className="truncate text-bone">{file.name}</span>
+                    {!isRestoring && (
+                      <span className="flex flex-wrap gap-x-4 gap-y-1">
+                        <button type="button" className={linkCls} onClick={() => replaceRef.current?.click()}>Replace</button>
+                        <button type="button" className={linkCls} onClick={() => addMoreRef.current?.click()}>Add more photos</button>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <input ref={replaceRef} type="file" className="hidden" accept={UPLOAD_TYPES.join(', ')} onChange={pickFiles(false)} />
+                <input ref={addMoreRef} type="file" multiple className="hidden" accept={UPLOAD_TYPES.join(', ')} onChange={pickFiles(true)} />
+              </section>
+            )}
 
-            {/* Develop action */}
-            <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate shrink-0 mt-auto p-4">
-              <div className="absolute inset-0 hairline pointer-events-none" />
+            <PromptSelector
+              options={promptOptions}
+              onChange={setPromptOptions}
+              previewUrl={file?.previewUrl ?? SAMPLE_BEFORE}
+              disabled={isRestoring}
+            />
+
+            <div className="flex flex-col gap-3 p-[22px]">
               <Button
                 onClick={handleRestore}
-                disabled={buttonConfig.disabled}
+                disabled={button.disabled}
                 isLoading={isRestoring}
-                icon={buttonConfig.icon}
-                variant={buttonConfig.variant}
+                variant={button.variant}
                 className="w-full"
               >
-                {buttonConfig.text}
+                {button.text}
               </Button>
+
               {inBatch && batch.isRunning && (
-                <button onClick={batch.stop} disabled={batch.stopRequested}
-                  className="mt-3 w-full font-mono text-[10px] uppercase tracking-widest text-ink-400 hover:text-amber-400 disabled:opacity-60 transition-colors">
-                  {batch.stopRequested ? 'Stopping after this photo…' : 'Stop after this photo'}
+                <button type="button" onClick={batch.stop} disabled={batch.stopRequested}
+                  className={`self-center text-[15px] ${linkCls} disabled:opacity-60`}>
+                  {batch.stopRequested ? 'Stopping after this photo' : 'Stop after this photo'}
                 </button>
               )}
-              {inBatch && !batch.isRunning && pending > 0 && quota.allowed && pending > quota.remaining && (
-                <p className="mt-3 text-xs text-ink-400 leading-relaxed">
-                  You have {quota.remaining} credit{quota.remaining === 1 ? '' : 's'} left today, so the first {quota.remaining} will
-                  be restored. The rest wait until your credits refill.
+
+              {!quota.allowed ? (
+                <p className="text-[15px] text-bone-3">
+                  You've used today's 3 free restorations.
+                  {quota.nextReset ? <> They refill in <Countdown targetDate={quota.nextReset} />.</> : null}
                 </p>
+              ) : inBatch ? (
+                !batch.isRunning && pending > 0 && (
+                  <p className="text-[15px] text-bone-3">
+                    {pending > quota.remaining
+                      ? `You have ${quota.remaining} left today, so the first ${quota.remaining} will be restored. The rest wait until your credits refill.`
+                      : `Uses ${pending} of your ${quota.remaining} restorations left today. Every photo gets the same style.`}
+                  </p>
+                )
+              ) : (
+                file && status !== 'loading' && (
+                  <p className="text-[15px] text-bone-3">Uses 1 credit. You have {quota.remaining} left today.</p>
+                )
               )}
-              {error && (
-                <div className="mt-3 flex items-center gap-2 bg-rust-500/10 border border-rust-500/30 text-rust-400 px-3 py-2 text-xs">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <p className="truncate">{error}</p>
-                </div>
-              )}
-            </section>
-          </div>
 
-          {/* Right - the development bath */}
-          <div className="lg:col-span-8 h-full md:overflow-hidden animate-rise" style={{ animationDelay: '90ms' }}>
-            <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate h-full flex flex-col md:overflow-hidden">
-              <div className="absolute inset-0 hairline pointer-events-none" />
-              <header className="flex items-center justify-between px-4 py-3.5 border-b border-ink-800 shrink-0">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[11px] text-amber-500/80">3</span>
-                  <h2 className="font-display text-base font-semibold text-ink-100">Result</h2>
-                </div>
-                {status === 'success' && restoredImage ? (
-                  activeRestorationId ? (
-                    <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-widest text-patina-400">
-                      <Check className="w-3 h-3" /> Saved to archive
-                    </span>
-                  ) : (
-                    <span className="font-mono text-[9px] uppercase tracking-widest text-rust-400" title="This result couldn't be saved to your archive">
-                      Not saved, download to keep
-                    </span>
-                  )
-                ) : (
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-ink-600 hidden sm:block">
-                    before / after
-                  </span>
-                )}
-              </header>
-
-              <div className="flex-grow flex items-center justify-center bg-ink-950/60 overflow-hidden relative min-h-[400px] md:min-h-0">
-                {!file ? (
-                  <div className="text-center p-8">
-                    <div className="relative inline-grid place-items-center w-14 h-14 mb-5 border border-ink-700">
-                      <Wand2 className="w-6 h-6 text-ink-600" strokeWidth={1.5} />
-                      <span className="absolute -top-px -left-px w-2 h-2 border-t border-l border-amber-500/40" />
-                      <span className="absolute -bottom-px -right-px w-2 h-2 border-b border-r border-amber-500/40" />
-                    </div>
-                    <p className="font-display text-lg text-ink-300">No photo yet</p>
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-ink-600 mt-1.5">
-                      upload a photo to start
-                    </p>
-                  </div>
-                ) : (
-                  <RestoredView
-                    originalUrl={file.previewUrl}
-                    originalName={file.name}
-                    restoredUrl={restoredImage}
-                    status={status}
-                    archived={activeRestorationId !== null}
-                    onRemove={selectedItem ? () => handleRemoveQueueItem(selectedItem.id) : handleReset}
-                    onShare={activeRestorationId ? () => setShareTargetId(activeRestorationId) : undefined}
-                  />
-                )}
-              </div>
-            </section>
-          </div>
-        </div>
-      </main>
+              {error && <Notice tone="error">{error}</Notice>}
+            </div>
+          </aside>
+        </main>
+      )}
 
       {showNewPassword && <NewPasswordModal onClose={() => setShowNewPassword(false)} />}
 
@@ -583,17 +575,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      <ArchiveView
-        isOpen={showArchive}
-        onClose={() => setShowArchive(false)}
-        archive={archive}
-        activeId={activeRestorationId}
-        canSelect={status !== 'loading' && !batch.isRunning}
-        onSelect={handleSelectRestoration}
-        onDelete={handleDeleteRestoration}
-        onShare={(r) => setShareTargetId(r.id)}
-      />
-
       {shareTarget && (
         <ShareDialog
           restoration={shareTarget}
@@ -603,32 +584,16 @@ export const App: React.FC = () => {
       )}
 
       {showZeroCreditsModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink-950/85 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md bg-ink-900 border border-ink-700 shadow-plate p-8 animate-rise">
-            <div className="absolute inset-0 hairline pointer-events-none" />
-            <button
-              onClick={() => setShowZeroCreditsModal(false)}
-              className="absolute top-4 right-4 text-ink-500 hover:text-ink-200 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="flex flex-col items-center text-center">
-              <div className="relative grid place-items-center w-14 h-14 mb-6 border border-ink-700 bg-ink-950">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-ink-500">0/3</span>
-              </div>
-              <h2 className="font-display text-2xl font-semibold text-ink-100 mb-2">Out of credits</h2>
-              <p className="text-ink-400 text-sm mb-6 leading-relaxed">
-                You've used all 3 free restorations for today. More credits in:
-              </p>
-              <div className="bg-ink-950 border border-ink-700 px-8 py-4 mb-8">
-                <Countdown targetDate={quota.nextReset} className="text-2xl text-amber-400" />
-              </div>
-              <Button onClick={() => setShowZeroCreditsModal(false)} variant="secondary" className="w-full">
-                Close
-              </Button>
+        <Modal title="No restorations left today" onClose={() => setShowZeroCreditsModal(false)}>
+          <p className="text-bone-2 mb-5">You've used all 3 free restorations for today. Your album and downloads still work.</p>
+          {quota.nextReset ? (
+            <div className="mb-7 px-5 py-4 rounded bg-cover border border-rule">
+              <p className="text-[15px] text-bone-3">They refill in</p>
+              <Countdown targetDate={quota.nextReset} className="font-display text-3xl text-brass" />
             </div>
-          </div>
-        </div>
+          ) : null}
+          <Button variant="quiet" className="w-full" onClick={() => setShowZeroCreditsModal(false)}>Close</Button>
+        </Modal>
       )}
     </div>
   );

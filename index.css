@@ -2,54 +2,80 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; }
+/* Oxblood album palette. Space-separated RGB so Tailwind can add opacity.
+   The share page (public/share-viewer.css) and 404 page repeat these values. */
+:root {
+  color-scheme: dark;
+  --page: 43 21 23;        /* #2b1517 album page */
+  --panel: 53 27 29;       /* #351b1d raised panels */
+  --cover: 31 14 16;       /* #1f0e10 nav and footer band */
+  --rule: 74 42 44;        /* #4a2a2c hairlines */
+  --bone: 240 229 215;     /* #f0e5d7 main text */
+  --bone-2: 201 184 171;   /* #c9b8ab secondary text */
+  --bone-3: 168 146 135;   /* #a89287 quiet text, still 4.5:1 on panels */
+  --corner: 230 216 195;   /* #e6d8c3 photo corners */
+  --brass: 227 169 94;     /* #e3a95e accent: the 4K, selected states */
+  --rust: 232 161 132;     /* #e8a184 errors and removal */
+  --sage: 181 201 166;     /* #b5c9a6 success */
+  --lens: 18 10 11;        /* #120a0b loupe rim, slider handle */
+}
 
 body {
-  background-color: #0c0a09;
-  background-image:
-    radial-gradient(120% 80% at 50% -10%, rgba(224,164,88,0.10), transparent 55%),
-    radial-gradient(80% 60% at 100% 110%, rgba(95,138,118,0.06), transparent 60%);
-  background-attachment: fixed;
+  background-color: rgb(var(--page));
+  color: rgb(var(--bone));
+  font-size: 17px;
+  line-height: 1.55;
 }
 
-/* Film-grain overlay - the atelier atmosphere */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.5;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+h1, h2, h3 { text-wrap: balance; }
 
-/* Fine vignette */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  box-shadow: inset 0 0 200px 40px rgba(0,0,0,0.55);
-}
+::selection { background: rgb(var(--brass) / 0.35); color: rgb(var(--bone)); }
 
-#root { position: relative; z-index: 2; }
-
-@media (min-width: 768px) {
-  body { overflow: hidden; }
-}
-
-/* Optical refinements */
-.font-display { font-optical-sizing: auto; }
-.text-balance { text-wrap: balance; }
-
-::selection { background: rgba(224,164,88,0.3); color: #f2eee7; }
-
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #332b25; border-radius: 0; border: 2px solid #0c0a09; }
-::-webkit-scrollbar-thumb:hover { background: #473c33; }
+::-webkit-scrollbar-thumb { background: rgb(var(--rule)); border: 2px solid rgb(var(--page)); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--bone-3)); }
 
-/* Hairline registration borders */
-.hairline { box-shadow: inset 0 0 0 1px rgba(196,184,169,0.08); }
+:focus-visible { outline: 2px solid rgb(var(--brass)); outline-offset: 3px; }
+
+@layer components {
+  /* A print held in four photo corners. The corners sit slightly outside the
+     photo, like the paper pockets in an album. Size with --c, overhang with --co. */
+  .mount {
+    --c: 24px;
+    --co: 6px;
+    position: relative;
+  }
+  .mount::after {
+    content: "";
+    position: absolute;
+    inset: calc(var(--co) * -1);
+    z-index: 5;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, rgb(var(--corner)) 50%, transparent 50%) top left / var(--c) var(--c) no-repeat,
+      linear-gradient(225deg, rgb(var(--corner)) 50%, transparent 50%) top right / var(--c) var(--c) no-repeat,
+      linear-gradient(45deg, rgb(var(--corner)) 50%, transparent 50%) bottom left / var(--c) var(--c) no-repeat,
+      linear-gradient(315deg, rgb(var(--corner)) 50%, transparent 50%) bottom right / var(--c) var(--c) no-repeat;
+  }
+  .mount-sm { --c: 14px; --co: 4px; }
+  .mount-xs { --c: 10px; --co: 3px; }
+}
+
+/* Style previews: rough browser filters, not the real result. Kept outside
+   @layer because the class names are built at runtime (look-${key}), which
+   Tailwind can't see and would otherwise purge. */
+.look-standard { filter: none; }
+.look-silver-gelatin { filter: grayscale(1) contrast(1.12); }
+.look-albumen { filter: sepia(0.85) contrast(1.04) brightness(0.95); }
+.look-cyanotype { filter: grayscale(1) sepia(1) hue-rotate(172deg) saturate(2.4) brightness(0.86); }
+.look-autochrome { filter: saturate(0.55) contrast(0.84) brightness(1.08) sepia(0.14); }
+.look-kodachrome { filter: saturate(1.45) contrast(1.16); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

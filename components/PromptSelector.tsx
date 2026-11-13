@@ -1,5 +1,4 @@
 import React from 'react';
-import { Check, Circle } from 'lucide-react';
 
 export type DeveloperProcess = 'standard' | 'silver-gelatin' | 'albumen' | 'cyanotype' | 'autochrome' | 'kodachrome';
 
@@ -12,20 +11,22 @@ export interface PromptOptions {
 interface PromptSelectorProps {
   options: PromptOptions;
   onChange: (options: PromptOptions) => void;
+  previewUrl: string;   // the photo the thumbnails are drawn from
+  disabled?: boolean;
 }
 
 export const PROCESSES = [
-  { key: 'standard', code: 'ST', label: 'Natural color', desc: 'Realistic, true-to-life restoration' },
-  { key: 'silver-gelatin', code: 'BW', label: 'Black & white', desc: 'High-contrast monochrome' },
-  { key: 'albumen', code: 'SE', label: 'Sepia', desc: 'Warm brown vintage tone' },
-  { key: 'cyanotype', code: 'CY', label: 'Cyanotype blue', desc: 'Prussian-blue photographic wash' },
-  { key: 'autochrome', code: 'AU', label: 'Soft pastel', desc: 'Muted early-color look with a gentle glow' },
-  { key: 'kodachrome', code: 'KC', label: 'Vivid film', desc: 'Punchy reds and rich contrast' },
+  { key: 'standard', label: 'Natural color', desc: 'Realistic, true-to-life restoration.' },
+  { key: 'silver-gelatin', label: 'Black & white', desc: 'High-contrast monochrome.' },
+  { key: 'albumen', label: 'Sepia', desc: 'A warm brown vintage tone.' },
+  { key: 'cyanotype', label: 'Cyanotype blue', desc: 'A Prussian-blue photographic wash.' },
+  { key: 'autochrome', label: 'Soft pastel', desc: 'Muted early color with a gentle glow.' },
+  { key: 'kodachrome', label: 'Vivid film', desc: 'Punchy reds and rich contrast.' },
 ] as const;
 
 export const MODIFIERS = [
-  { key: 'chiaroscuro', code: 'CS', label: 'Deeper shadows', desc: 'More dramatic contrast' },
-  { key: 'matte', code: 'MT', label: 'Matte finish', desc: 'Softer highlights, vintage paper feel' },
+  { key: 'chiaroscuro', label: 'Deeper shadows', desc: 'More dramatic contrast' },
+  { key: 'matte', label: 'Matte finish', desc: 'Softer highlights, like old photo paper' },
 ] as const;
 
 // Maps a stored treatment back onto selector options, falling back to the
@@ -36,102 +37,89 @@ export const toPromptOptions = (t: { process: string; chiaroscuro: boolean; matt
   matte: t.matte,
 });
 
-export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChange }) => {
+export const sameOptions = (a: PromptOptions, b: PromptOptions) =>
+  a.process === b.process && a.chiaroscuro === b.chiaroscuro && a.matte === b.matte;
 
-  const setProcess = (process: DeveloperProcess) => {
-    onChange({ ...options, process });
+export const processLabel = (key: string) => (PROCESSES.find(p => p.key === key) ?? PROCESSES[0]).label;
+
+// "Sepia, deeper shadows"
+export const treatmentLabel = (t: { process: string; chiaroscuro: boolean; matte: boolean }) =>
+  [processLabel(t.process), ...MODIFIERS.filter(m => t[m.key]).map(m => m.label.toLowerCase())].join(', ');
+
+export const PromptSelector: React.FC<PromptSelectorProps> = ({ options, onChange, previewUrl, disabled = false }) => {
+  const keys = PROCESSES.map(p => p.key);
+  const current = PROCESSES.find(p => p.key === options.process) ?? PROCESSES[0];
+
+  const select = (process: DeveloperProcess) => onChange({ ...options, process });
+
+  // Arrow keys move through the styles, as in a native radio group.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const i = keys.indexOf(options.process);
+    let n: number | null = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') n = (i + 1) % keys.length;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') n = (i - 1 + keys.length) % keys.length;
+    if (n === null) return;
+    e.preventDefault();
+    select(keys[n]);
+    e.currentTarget.querySelector<HTMLButtonElement>(`[data-style="${keys[n]}"]`)?.focus();
   };
-
-  const toggleModifier = (key: 'chiaroscuro' | 'matte') => {
-    onChange({ ...options, [key]: !options[key] });
-  };
-
 
   return (
-    <section className="relative bg-ink-900/60 border border-ink-800 shadow-plate">
-      <div className="absolute inset-0 hairline pointer-events-none" />
-      
-      <header className="flex items-center gap-3 px-4 py-3.5 border-b border-ink-800">
-        <span className="font-mono text-[11px] text-amber-500/80">2</span>
-        <h2 className="font-display text-base font-semibold text-ink-100">Choose a style</h2>
-      </header>
-
-      {/* Group A: Style (pick one) */}
-      <div className="px-4 py-2 bg-ink-950/40 border-b border-ink-800/80">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Style (pick one)</span>
-      </div>
-      <div className="divide-y divide-ink-800/70">
-        {PROCESSES.map((item) => {
-          const active = options.process === item.key;
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setProcess(item.key)}
-              className={`group w-full flex items-center gap-3.5 px-4 py-2.5 text-left cursor-pointer border-l-2 transition-colors duration-150
-                ${active ? 'bg-amber-500/[0.06] border-amber-500' : 'border-transparent hover:bg-ink-850/60 hover:border-ink-600'}`}
-            >
-              <span className={`shrink-0 font-mono text-[9px] tracking-wider w-7 text-center py-0.5 border transition-colors
-                ${active ? 'border-amber-500/40 text-amber-400' : 'border-ink-700 text-ink-500'}`}>
-                {item.code}
-              </span>
-
-              <span className="flex-1 min-w-0">
-                <span className={`block text-[12px] font-medium transition-colors ${active ? 'text-ink-100' : 'text-ink-300'}`}>
-                  {item.label}
+    <>
+      <section className="flex flex-col gap-3.5 p-[22px] border-b border-rule">
+        <h2 id="style-heading" className="font-display text-[21px] leading-tight">Style</h2>
+        <div role="radiogroup" aria-labelledby="style-heading" onKeyDown={onKeyDown}
+          className="grid grid-cols-3 gap-x-3.5 gap-y-5">
+          {PROCESSES.map(p => {
+            const active = p.key === options.process;
+            return (
+              <button
+                key={p.key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                tabIndex={active ? 0 : -1}
+                data-style={p.key}
+                disabled={disabled}
+                onClick={() => select(p.key)}
+                className="group flex flex-col gap-2 text-left min-w-0 focus-visible:outline-none disabled:cursor-not-allowed"
+              >
+                <span className={`mount mount-xs block outline outline-2 outline-offset-[6px] transition-[outline-color]
+                  ${active ? 'outline-brass' : 'outline-transparent group-focus-visible:outline-bone'}`}>
+                  <img src={previewUrl} alt="" className={`block w-full aspect-square object-cover look-${p.key}`} draggable={false} />
                 </span>
-                <span className="block text-[10px] text-ink-500 mt-0.5 truncate">{item.desc}</span>
-              </span>
+                <span className={`text-sm leading-tight ${active ? 'text-brass font-bold' : 'text-bone-2'}`}>{p.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[15px] text-bone-2">{current.desc}</p>
+        <p className="text-sm text-bone-3">The thumbnails are a rough preview.</p>
+      </section>
 
-              <span className={`shrink-0 grid place-items-center w-4.5 h-4.5 rounded-full border transition-all duration-150
-                ${active
-                  ? 'border-amber-500 text-amber-500 bg-amber-500/10'
-                  : 'border-ink-600 text-transparent group-hover:border-ink-500'}`}>
-                <div className={`w-2 h-2 rounded-full bg-amber-500 transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`} />
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Group B: Extras (optional toggles) */}
-      <div className="px-4 py-2 bg-ink-950/40 border-t border-b border-ink-800/80">
-        <span className="font-mono text-[9px] uppercase tracking-widest text-ink-500">Extras (optional)</span>
-      </div>
-      <div className="divide-y divide-ink-800/70">
-        {MODIFIERS.map((item) => {
-          const active = options[item.key];
-          return (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => toggleModifier(item.key)}
-              className={`group w-full flex items-center gap-3.5 px-4 py-2.5 text-left cursor-pointer border-l-2 transition-colors duration-150
-                ${active ? 'bg-amber-500/[0.06] border-amber-500' : 'border-transparent hover:bg-ink-850/60 hover:border-ink-600'}`}
-            >
-              <span className={`shrink-0 font-mono text-[9px] tracking-wider w-7 text-center py-0.5 border transition-colors
-                ${active ? 'border-amber-500/40 text-amber-400' : 'border-ink-700 text-ink-500'}`}>
-                {item.code}
-              </span>
-
-              <span className="flex-1 min-w-0">
-                <span className={`block text-[12px] font-medium transition-colors ${active ? 'text-ink-100' : 'text-ink-300'}`}>
-                  {item.label}
-                </span>
-                <span className="block text-[10px] text-ink-500 mt-0.5 truncate">{item.desc}</span>
-              </span>
-
-              <span className={`shrink-0 grid place-items-center w-4.5 h-4.5 border transition-all duration-150
-                ${active
-                  ? 'bg-amber-500 border-amber-500 text-ink-950'
-                  : 'border-ink-600 text-transparent group-hover:border-ink-500'}`}>
-                <Check className="w-3 h-3" strokeWidth={3.5} />
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
+      <section className="flex flex-col gap-3.5 p-[22px] border-b border-rule">
+        <h2 className="font-display text-[21px] leading-tight">Extras</h2>
+        {MODIFIERS.map(m => (
+          <label key={m.key} className={`relative flex items-start gap-3 ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+            <input
+              type="checkbox"
+              className="peer sr-only"
+              checked={options[m.key]}
+              disabled={disabled}
+              onChange={() => onChange({ ...options, [m.key]: !options[m.key] })}
+            />
+            <span aria-hidden="true"
+              className="relative shrink-0 w-[22px] h-[22px] mt-px rounded border-[1.5px] border-bone-3 transition-colors
+                peer-checked:bg-bone peer-checked:border-bone peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-brass peer-focus-visible:outline-offset-[3px]
+                after:content-[''] after:absolute after:left-[6.5px] after:top-[2px] after:w-[5px] after:h-[11px] after:rotate-45
+                after:border-page after:border-r-[2.5px] after:border-b-[2.5px] after:opacity-0 peer-checked:after:opacity-100" />
+            <span>
+              {m.label}
+              <small className="block text-[15px] text-bone-3">{m.desc}</small>
+            </span>
+          </label>
+        ))}
+      </section>
+    </>
   );
 };
-

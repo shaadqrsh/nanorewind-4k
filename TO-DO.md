@@ -1,6 +1,6 @@
 # 🛠️ NanoRewind 4K — Future Features & Implementation Roadmap
 
-This document serves as a guide for implementing new features and enhancements for NanoRewind, maintaining its premium **dark-room/atelier** aesthetic (graphite/ink palette, amber accents, and vintage photography terminology).
+This document serves as a guide for implementing new features and enhancements for NanoRewind, in its **family album** look (oxblood album pages, prints held in photo corners, brass accents, Young Serif and Atkinson Hyperlegible).
 
 ---
 
@@ -9,8 +9,8 @@ This document serves as a guide for implementing new features and enhancements f
 1. [x] **[Phase 1] The Plate Archive (Restoration Library)**
 2. [x] **[Phase 2] The Atelier Entrance (Landing Page)**
 3. [x] **[Phase 3] API Rate-Limiting Decorator** (plus a security audit)
-4. [ ] **[Phase 4] Suggested Enhancements (Sharing, Batching)** — built, awaiting test
-5. [ ] **[Phase 5] UI Redesign (Anti-Pattern Checklist)**
+4. [x] **[Phase 4] Suggested Enhancements (Sharing, Batching)**
+5. [ ] **[Phase 5] UI Redesign (Anti-Pattern Checklist)** (built, awaiting test)
 6. [ ] **[Phase 6] Compliance, SEO & Accessibility**
 7. [ ] **[Phase 7] Paid Features (Stripe & Custom Domain)**
 8. [ ] **[Phase 8] Fine-Tuning Treatment Drawer** (moved from the suggested enhancements)
@@ -93,7 +93,7 @@ This document serves as a guide for implementing new features and enhancements f
 ### 🌟 4. Public Share Links & Galleries
 - **Concept:** Let users "publish" a restored photo. Generates a public shareable URL (e.g. `/share/[id]`) showing the before/after slider view with customized SEO meta-tags.
 - **Why:** Encourages organic virality. When users show off their restored family photos, they share the link, bringing new traffic to the app.
-- [x] **Share links** — built, awaiting test:
+- [x] **Share links:**
   - "Share" in the archive and on the result opens a dialog to create, copy or turn off a link. Each link is 16 random characters; turning it off kills it, and sharing again makes a new one.
   - `/share/<id>` is a server-rendered page (`api/share.ts`, with `public/share-viewer.*`) with a before/after slider and link-preview tags. It's `noindex`, sends no `Referer`, and never shows the owner or the file name.
   - Database: `share_id` column plus `set_restoration_share`, `get_shared_restoration` and an anon-only storage rule for shared files only. Image links are 10-minute signed URLs.
@@ -102,7 +102,7 @@ This document serves as a guide for implementing new features and enhancements f
 ### 🌟 6. Batch Restoration Queue
 - **Concept:** Drag and drop multiple photos into the tray. They queue up and process sequentially, updating a progress bar for each "plate".
 - **Why:** Dramatically improves the UX for users who want to restore entire albums.
-- [x] **Batch queue** — built, awaiting test:
+- [x] **Batch queue:**
   - Drop or pick up to 10 photos. They restore one at a time with a status per photo (waiting, restoring with a progress bar, done, failed, no credits left), and each result goes to the archive.
   - Credits cap it: when they run out, the rest are marked "No credits left" and the next run retries them. "Stop after this photo" pauses a batch.
   - Photos over 3 MB are shrunk in the browser (longest side 3072px) to fit Vercel's 4.5 MB request limit. This also fixes single uploads of large phone photos, which used to fail.
@@ -112,53 +112,63 @@ This document serves as a guide for implementing new features and enhancements f
 ### 7. 🎨 UI Redesign (Anti-Pattern Checklist)
 **Goal:** Redesign the UI without falling into generic, templated "AI-generated site" patterns. Check each item off once the redesign is confirmed free of it.
 
+#### **What was built**
+- [x] **Direction:** the "Album" mockup, picked from three, with the light-table mockup's view modes. Oxblood album pages (`index.css` holds the palette as CSS variables), prints held in photo corners (the `.mount` class), Young Serif headings and Atkinson Hyperlegible text. "NanoRewind 4K" is the wordmark; the copy says "high resolution" instead of claiming 4K output.
+- [x] **Workspace:** the photo on the left, a settings panel on the right (photo or batch list, a 3x2 style grid that previews your own photo, extras, the restore button). After a result the button offers "Restore again" or "Restore in sepia", which also works for photos reopened from the album. Results show in three modes: **Loupe** (a 2.4x lens of the restored photo over the original), **Slider** and **Side by side** (with pixel sizes). The chosen mode is remembered.
+- [x] **Album:** the archive is now its own view at `#album` (Back works), with mounted prints, captions, text actions, loading placeholders and an empty slot that starts a new restore.
+- [x] **Everything else:** landing page, sign in and sign up (with a breadcrumb), share dialog, settings, new password, sign out and out-of-credits dialogs, all on one `Modal` shell. Account menu in the header.
+- [x] **Share page:** restyled, with breadcrumbs and a generated 1200x630 preview card per link (`api/_lib/shareCard.ts`, satori + resvg). If the card can't be drawn, the link preview falls back to the restored photo.
+- [x] **Assets:** `og-card.jpg` for the landing page, a favicon set (SVG, ICO, PNG sizes, Apple touch icon, maskable icon, web manifest) and `public/404.html`.
+- [x] **Fixed on the way:** "Add more photos" with a single extra photo replaced the open photo instead of starting a batch.
+
 #### **Color & Surfaces**
-- [ ] No harsh gradients
-- [ ] No pure white (`#fff`) background
-- [ ] No rainbow coloring
-- [ ] No purple-and-black palette
-- [ ] No neon colors
-- [ ] No basic pastel colors
-- [ ] No colored accent stripe on cards (e.g. a left-border highlight)
-- [ ] No liquid glass / glassmorphism
-- [ ] No drop shadow on everything
+- [x] No harsh gradients
+- [x] No pure white (`#fff`) background
+- [x] No rainbow coloring
+- [x] No purple-and-black palette
+- [x] No neon colors
+- [x] No basic pastel colors
+- [x] No colored accent stripe on cards (the selected batch row and style use an outline instead)
+- [x] No liquid glass / glassmorphism (dialog backdrops are a solid scrim)
+- [x] No drop shadow on everything (only the loupe has an outline ring)
 
 #### **Typography & Copy**
-- [ ] No Inter, Geist, or Space Grotesk fonts
-- [ ] No em dashes in UI copy
-- [ ] No emojis in UI copy
-- [ ] No "It's not X, it's Y" phrasing
-- [ ] Run all UI text through the `/humanizer` skill, including copy written in earlier phases
+- [x] No Inter, Geist, or Space Grotesk fonts
+- [x] No em dashes in UI copy
+- [x] No emojis in UI copy
+- [x] No "It's not X, it's Y" phrasing
+- [x] Run all UI text through the `/humanizer` skill, including copy written in earlier phases
 
 #### **Layout & Components**
-- [ ] No three feature cards in a row
-- [ ] No bento grids
-- [ ] No terminal-window mockups
-- [ ] No checkmark bullets
-- [ ] No soft, uniform corner radius on everything
-- [ ] No loose side icons floating beside text
+- [x] No three feature cards in a row (fixes are a 2x2 list, steps are a vertical list)
+- [x] No bento grids
+- [x] No terminal-window mockups
+- [x] No checkmark bullets
+- [x] No soft, uniform corner radius on everything (pill buttons, square prints, lightly rounded panels)
+- [x] No loose side icons floating beside text
 
 #### **Decoration & Motion**
-- [ ] No radial orbs or glow blobs
-- [ ] No dot-grid backgrounds
-- [ ] No sparkle icons
-- [ ] No animated arrows
-- [ ] No hover animations on every element
+- [x] No radial orbs or glow blobs
+- [x] No dot-grid backgrounds
+- [x] No sparkle icons
+- [x] No animated arrows
+- [x] No hover animations on every element (hovers change color only)
 
 #### **Content & Trust**
-- [ ] No fake reviews or testimonials
-- [ ] No default placeholder content (template text, stock filler, sample data)
-- [x] No "Vite" or "React" in the browser tab title (title is "NanoRewind | Restore old photos with AI")
-- [ ] Show real product demos (actual restorations, not mockups)
-- [ ] Use skeleton loaders where content loads
+- [x] No fake reviews or testimonials
+- [x] No default placeholder content (template text, stock filler, sample data)
+- [x] No "Vite" or "React" in the browser tab title (title is "NanoRewind 4K | Restore old family photos")
+- [x] Show real product demos (the landing spread is a real restoration)
+- [ ] Replace the six style previews (filters on the sample, labelled as such) with real outputs: run the sample through each style and save them under `public/showcase/`
+- [x] Use skeleton loaders where content loads (album, photos in the workspace, share page, app start)
 
 #### **Pages & Navigation**
-- [ ] Custom 404 page
-- [ ] One clear heading (`<h1>`) per page
-- [ ] Internal links between pages (landing, archive, policy pages)
-- [ ] Breadcrumbs on nested pages (e.g. policy pages, share pages)
-- [ ] Proper favicon set (currently an inline SVG data URI; add `.ico`, PNG sizes and `apple-touch-icon`)
-- [ ] Social share images for every public page (`og-image.jpg` covers the landing page only)
+- [x] Custom 404 page (`public/404.html`)
+- [x] One clear heading (`<h1>`) per page
+- [x] Internal links between pages (landing footer, auth breadcrumb, share and 404 pages link home). Add the policy pages to the footer in phase 8.
+- [x] Breadcrumbs on nested pages (sign in, share pages, 404). Policy pages should get them too.
+- [x] Proper favicon set
+- [x] Social share images for every public page (`og-card.jpg` for the landing and sign-in screens, a generated card per share link)
 
 ---
 
@@ -215,6 +225,7 @@ This document serves as a guide for implementing new features and enhancements f
 - **Why:** Transforms the hobby app into a micro-SaaS and covers Gemini API costs.
 - [ ] Stripe Checkout backend and webhook to add credits
 - [ ] Credits purchase UI
+- [ ] Real 4K output for paid restorations (set `imageConfig.imageSize` to `4K` in `api/restore.ts`); free restorations stay at the current size
 - [ ] No three pricing tiers
 - [ ] No hidden fees (show the full price before checkout)
 - [ ] Add a Refund Policy page
