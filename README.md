@@ -1,112 +1,97 @@
-<div align="center">
+# NanoRewind 4K
 
-# 🖼️ NanoRewind 4K — Old Photo Restoration
+A free web app that restores old family photos with Google Gemini. It repairs scratches, tears and faded color, and keeps every result in a private album.
 
-**A free photo restoration app built on Google Gemini.**
+Live at [nanorewind-4k.vercel.app](https://nanorewind-4k.vercel.app).
 
-Repair scratches, tears and faded color in old family photos.
+Built with React 19, TypeScript, Vite and Tailwind CSS on the front end, Vercel serverless functions for the API, Supabase for auth, Postgres and storage, and the Gemini image model for the restorations.
 
-<br/>
+## Features
 
-![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Vercel](https://img.shields.io/badge/Vercel-Serverless-000000?style=for-the-badge&logo=vercel&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-Postgres-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
-![Google Gemini](https://img.shields.io/badge/Google_Gemini-AI-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+- Restores old, scratched or blurry photos. Results come out at about one megapixel (for example 1024 × 1024). "4K" is the brand name; true 4K output is planned for a paid tier.
+- Six photographic processes to render the result in: Standard, Silver Gelatin (black and white), Albumen (sepia), Cyanotype, Lumière Autochrome and Kodachrome 64.
+- Two optional modifiers. Chiaroscuro deepens the shadows, and Matte Emulsion softens the highlights like old paper.
+- Three ways to compare the result with the original: a loupe that magnifies the restored photo over the original, a drag-to-reveal slider, and side by side.
+- A private album. Every restoration is saved there automatically, and you can reopen any of them in the workspace, download, share or delete them.
+- Share links at `/share/<id>`. Each one is a before/after page with its own generated preview card (the before and after held in photo corners). Links are unlisted, kept out of search engines, and can be turned off at any time.
+- Batch restores. Drop up to 10 photos and they restore one after another, each saved to the album. The browser shrinks large photos to fit the upload limit.
+- Free credits. Every account holds up to 3, and one more comes back every 24 hours. Supabase tracks them.
+- Privacy, terms and cookie pages, prerendered as static HTML. Sign-up asks you to confirm you're 18 or older. The browser strips photo metadata (GPS location and the like) before upload, and Settings has a "Delete all my photos" button. There are no analytics, ads or third-party fonts.
+- All auth and database logic runs on the server, so the browser holds no secrets. Restore, sign-up, login and password reset are rate-limited per client IP.
 
-</div>
-
----
-
-## ✨ Features
-
-- 🪄 **Photo restoration** — repair old, scratched, or blurry photos.
-- 🎯 **Sharper output** — restorations come out at about one megapixel (e.g. 1024 × 1024). "4K" is the brand name; true 4K output is planned for the paid tier.
-- 🎞️ **Developer processes** — render results in distinct photographic styles: Standard, Silver Gelatin (B&W), Albumen (sepia), Cyanotype, Lumière Autochrome, and Kodachrome 64.
-- 🌗 **Atmospheric modifiers** — optional Chiaroscuro (deeper dramatic shadows) and Matte Emulsion (softened vintage-paper highlights).
-- 🔍 **Three ways to compare** — a loupe that magnifies the restored photo over the original, a drag-to-reveal slider, and side by side.
-- 🗄️ **Album** — every restoration is saved to a private album automatically. Reopen any of them in the workspace, or download, share or delete them.
-- 🔗 **Share links** — publish a restoration at `/share/<id>`: a before/after page with link previews. Each link gets a generated preview card (before and after in photo corners). Links are unlisted, not indexed by search engines, and can be turned off at any time.
-- 📚 **Batch restores** — drop up to 10 photos and they restore one after another, each saved to the album. Large photos are shrunk in the browser to fit the upload limit.
-- 🎟️ **Free credits** — every account holds up to 3; one more comes back every 24 hours. Tracked in Supabase.
-- ⚖️ **Policies and privacy** — privacy, terms and cookie pages (prerendered static HTML), an 18+ agreement at sign-up, photo metadata (GPS location etc.) stripped in the browser before upload, and "Delete all my photos" in Settings. No analytics, ads or third-party fonts.
-- 🔒 **Secure by design** — all auth and database logic runs server-side, with no secrets in the browser. Restore, sign-up, login and password-reset requests are rate-limited per client IP.
-
-## 🏗️ Architecture
+## Architecture
 
 | Layer | Tech |
 | --- | --- |
-| **Frontend** | React 19 + Vite, deployed on Vercel |
-| **Backend** | Vercel Serverless Functions (Node.js / TypeScript) under `/api`, same-origin with the frontend |
-| **Database** | Supabase (Postgres) with strict RLS and RPC-based credit deduction |
-| **Storage** | Private Supabase Storage bucket (`nanorewind-plates`), per-user folders, signed URLs |
-| **AI** | Google Gemini image model |
+| Frontend | React 19 and Vite, deployed on Vercel |
+| Backend | Vercel Serverless Functions (Node.js, TypeScript) under `/api`, on the same origin as the frontend |
+| Database | Supabase Postgres with strict RLS and an RPC that deducts credits |
+| Storage | A private Supabase Storage bucket (`nanorewind-plates`) with per-user folders and signed URLs |
+| AI | Google Gemini image model |
+| Share cards | satori and resvg-wasm, rendered in `api/share.ts` |
 
-## 🚀 Local Development
+## Local development
 
 ```bash
 npm install
 npx vercel dev
 ```
 
-`vercel dev` serves both the Vite frontend and the `/api/*` serverless functions on a single localhost port. Create a `.env` (or run `vercel env pull`) with:
+`vercel dev` serves the Vite frontend and the `/api/*` serverless functions on one localhost port. Create a `.env` (or run `vercel env pull`) with:
 
 | Variable | Description |
 | --- | --- |
 | `GEMINI_API_KEY` | Your Google Gemini API key |
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_ANON_KEY` | Your Supabase anon key |
-| `GITHUB_OAUTH_ID`, `GITHUB_OAUTH_SECRET` | Only for the Decap CMS login proxy under `/api/decap` |
-| `DECAP_ALLOWED_ORIGINS` | Comma-separated sites allowed to use that proxy, e.g. `https://my-portfolio.vercel.app`. If it's unset, the proxy refuses to run. |
+| `GITHUB_OAUTH_ID`, `GITHUB_OAUTH_SECRET` | Only needed for the Decap CMS login proxy under `/api/decap` |
+| `DECAP_ALLOWED_ORIGINS` | Comma-separated sites allowed to use that proxy, e.g. `https://my-portfolio.vercel.app`. The proxy refuses to run if this is unset. |
 
-> [!NOTE]
-> Plain `npm run dev` runs the frontend only — the `/api` routes require `vercel dev` (or a Vercel deployment).
+Plain `npm run dev` runs only the frontend. The `/api` routes need `vercel dev` or a Vercel deployment.
 
-The landing page shows a real restoration as a before/after album spread. Swap in your own example by replacing [`public/showcase/before.png`](public/showcase/before.png) and [`public/showcase/after.png`](public/showcase/after.png) (square images work best).
+The landing page shows a real restoration as a before/after album spread. To use your own example, replace [`public/showcase/before.png`](public/showcase/before.png) and [`public/showcase/after.png`](public/showcase/after.png). Square images work best.
 
-The UI uses Young Serif and Atkinson Hyperlegible, both under the SIL Open Font License. The site serves its own WOFF2 copies from [`public/fonts/`](public/fonts/) (no Google Fonts requests), and TTF copies live in [`api/_lib/fonts/`](api/_lib/fonts/) for the share-card renderer. Both folders include the licenses.
+The UI uses Young Serif and Atkinson Hyperlegible, both under the SIL Open Font License. The site serves its own WOFF2 copies from [`public/fonts/`](public/fonts/) and makes no Google Fonts requests. TTF copies for the share-card renderer live in [`api/_lib/fonts/`](api/_lib/fonts/). Both folders include the licenses.
 
 ### Pages, metadata and policies
 
-- Every page has a real address (`/`, `/signin`, `/signup`, `/album`, `/privacy`, `/terms`, `/cookies`). Titles, descriptions and canonical links come from `PAGE_META` in [`utils/routes.ts`](utils/routes.ts).
-- `npm run build` writes one HTML file per page with its own head tags, prerenders the policy pages to static HTML without JavaScript, and generates `sitemap.xml` (see the plugin in [`vite.config.ts`](vite.config.ts)). Vercel's `cleanUrls` serves `/privacy` from `privacy.html`.
-- The policy text lives in [`components/legal/`](components/legal/); the operator, location, contact and "last updated" date are in [`utils/site.ts`](utils/site.ts). Update `POLICIES_UPDATED` whenever a policy changes.
-- `public/robots.txt` and `public/llms.txt` are static. The production URL is `SITE_URL` in `utils/site.ts`; change it there (and in those two files and the JSON-LD in `index.html`) when moving to a custom domain.
+- Every page has its own address: `/`, `/signin`, `/signup`, `/album`, `/privacy`, `/terms` and `/cookies`. Titles, descriptions and canonical links come from `PAGE_META` in [`utils/routes.ts`](utils/routes.ts).
+- `npm run build` writes one HTML file per page with its own head tags, prerenders the policy pages to static HTML that needs no JavaScript, and generates `sitemap.xml`. The plugin is in [`vite.config.ts`](vite.config.ts). Vercel's `cleanUrls` serves `/privacy` from `privacy.html`.
+- The policy text is in [`components/legal/`](components/legal/). The operator, location, contact and "last updated" date are in [`utils/site.ts`](utils/site.ts). Update `POLICIES_UPDATED` whenever a policy changes.
+- `public/robots.txt` and `public/llms.txt` are static files. The production URL is `SITE_URL` in `utils/site.ts`. If you move to a custom domain, change it there, in those two files and in the JSON-LD in `index.html`.
 
-## 📦 Deployment
+## Deployment
 
 ### 1. Database (Supabase)
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Run the SQL from [`backend/supabase_schema.sql`](backend/supabase_schema.sql) in the SQL Editor. It also creates the private `nanorewind-plates` storage bucket and its policies. The script is idempotent, so on an existing project you can re-run the whole file to add the archive.
+2. Run [`backend/supabase_schema.sql`](backend/supabase_schema.sql) in the SQL Editor. It also creates the private `nanorewind-plates` storage bucket and its policies. The script is idempotent, so you can re-run the whole file on an existing project.
 
-### 2. App + API (Vercel)
+### 2. App and API (Vercel)
 
-1. Import the repository to Vercel — it auto-detects Vite, and the `/api` folder deploys as serverless functions.
-2. Under **Settings → Environment Variables**, set `GEMINI_API_KEY`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` for Production and Preview. Tick **Development** too, so `vercel env pull` can fetch them for local `vercel dev`. Otherwise the API fails with "missing SUPABASE_URL or SUPABASE_ANON_KEY".
+1. Import the repository into Vercel. It detects Vite, and the `/api` folder deploys as serverless functions.
+2. Under Settings, Environment Variables, set `GEMINI_API_KEY`, `SUPABASE_URL` and `SUPABASE_ANON_KEY` for Production and Preview. Tick Development as well so `vercel env pull` can fetch them for `vercel dev`. Without them the API fails with "missing SUPABASE_URL or SUPABASE_ANON_KEY".
 
-> [!IMPORTANT]
-> These are server-side variables for the functions — do **not** prefix them with `VITE_`, which would expose them to the browser bundle.
+These are server-side variables for the functions. Don't prefix them with `VITE_`, because that would put them in the browser bundle.
 
 ### Keep-alive
 
-A GitHub Actions workflow ([`.github/workflows/keep_alive.yml`](.github/workflows/keep_alive.yml)) calls a small `ping()` database function hourly to keep the free-tier database from pausing. It requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository **Actions secrets**.
+A GitHub Actions workflow ([`.github/workflows/keep_alive.yml`](.github/workflows/keep_alive.yml)) calls a small `ping()` database function every hour so the free-tier database doesn't pause. It needs `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository Actions secrets.
 
-## 🔒 Security
+## Security
 
-What the code enforces:
+The code enforces the following:
 
-- **Secrets stay on the server.** The browser only talks to `/api`, and no keys are in the frontend bundle.
-- **Data isolation.** Postgres RLS and least-privilege grants limit every user to their own profile, archive rows and storage folder. Credits only change through `deduct_credits()`.
-- **Rate limits** per client IP on restore, sign-up, login and password reset (see `api/_lib/rateLimit.ts`).
-- **Security headers** in `vercel.json`, including a strict Content Security Policy on every page that only allows scripts, styles and fonts from this site.
-- **Sessions live in HttpOnly cookies** (`Secure`, `SameSite=Strict`, scoped to `/api`), so page scripts can't read the tokens. The server renews expired sessions itself, and state-changing requests from other sites are rejected. Sign-out revokes the session in Supabase. See `api/_lib/cookies.ts` and `api/_lib/auth.ts`.
-- **Email links use PKCE.** Confirmation and password-reset links carry a one-time code rather than tokens, and only complete sign-in in the browser that requested them.
+- The browser only talks to `/api`, and the frontend bundle contains no keys.
+- Postgres RLS and least-privilege grants limit every user to their own profile, album rows and storage folder. Credits only change through `deduct_credits()`.
+- Restore, sign-up, login and password reset are rate-limited per client IP (see `api/_lib/rateLimit.ts`).
+- `vercel.json` sets security headers, including a strict Content Security Policy on every page that only allows scripts, styles and fonts from this site.
+- Sessions live in HttpOnly cookies (`Secure`, `SameSite=Strict`, scoped to `/api`), so page scripts can't read the tokens. The server renews expired sessions itself and rejects state-changing requests from other sites. Signing out revokes the session in Supabase. See `api/_lib/cookies.ts` and `api/_lib/auth.ts`.
+- Confirmation and password reset emails use PKCE. The links carry a one-time code instead of tokens and only complete sign-in in the browser that requested them.
 
-Settings to check in dashboards, because code can't enforce these:
+Code can't enforce these dashboard settings, so check them yourself:
 
-- **Supabase → Authentication → URL Configuration:** set Site URL to your production URL, and list only your own domains under Redirect URLs. Include preview domains (e.g. `https://*-yourteam.vercel.app/**`) if you test email links on previews. Keep the default email templates (they use `{{ .ConfirmationURL }}`, which works with PKCE).
-- **Supabase → Authentication → Providers → Email:** keep "Confirm email" on, and turn on "Secure password change". Turn on leaked-password protection if your plan has it.
-- **Google Cloud → APIs & Services → Credentials:** restrict the Gemini key to the Generative Language API, and set a budget alert.
-- **Vercel → Environment Variables:** set `DECAP_ALLOWED_ORIGINS` before relying on the CMS login proxy.
+- Supabase, Authentication, URL Configuration: set Site URL to your production URL and list only your own domains under Redirect URLs. Add preview domains (e.g. `https://*-yourteam.vercel.app/**`) if you test email links on previews. Keep the default email templates; they use `{{ .ConfirmationURL }}`, which works with PKCE.
+- Supabase, Authentication, Providers, Email: keep "Confirm email" on and turn on "Secure password change". Turn on leaked-password protection if your plan has it.
+- Google Cloud, APIs & Services, Credentials: restrict the Gemini key to the Generative Language API and set a budget alert.
+- Vercel, Environment Variables: set `DECAP_ALLOWED_ORIGINS` before relying on the CMS login proxy.
