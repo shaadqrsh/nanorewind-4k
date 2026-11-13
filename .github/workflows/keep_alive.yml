@@ -5,13 +5,22 @@ on:
     - cron: '0 * * * *'
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Supabase Database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        # Calls the ping() function: it touches the database without giving
+        # anonymous callers access to any table. --fail makes errors visible.
         run: |
-          curl -s -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?select=user_id&limit=1" \
-          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Accept-Profile: nanorewind-4k"
+          curl -sS --fail -o /dev/null -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Profile: nanorewind-4k" \
+            -H "Content-Type: application/json" \
+            -d '{}'

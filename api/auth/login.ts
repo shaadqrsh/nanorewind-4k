@@ -1,12 +1,18 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../_lib/vercel.js';
 import { getGlobalSupabase } from '../_lib/supabase.js';
 import { withRateLimit } from '../_lib/rateLimit.js';
 import { ensureProfileExists } from '../_lib/profile.js';
+import { publicAuthResult } from '../_lib/session.js';
+import { isEmail, isPasswordInput } from '../_lib/validate.js';
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { email, password } = req.body || {};
+  if (!isEmail(email) || !isPasswordInput(password)) {
+    return res.status(400).json({ error: 'Enter your email and password.' });
+  }
+
   try {
     const { data, error } = await getGlobalSupabase().auth.signInWithPassword({ email, password });
 
@@ -18,10 +24,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       await ensureProfileExists(data.session);
     }
 
-    res.json(data);
+    res.json(publicAuthResult(data.session, data.user));
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: (err as Error).message || 'Login failed' });
+    res.status(500).json({ error: 'Login failed. Please try again.' });
   }
 }
 

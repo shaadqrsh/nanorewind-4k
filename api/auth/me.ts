@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../_lib/vercel.js';
 import { getGlobalSupabase } from '../_lib/supabase.js';
 import { ensureProfileExists } from '../_lib/profile.js';
 import { getBearerToken } from '../_lib/auth.js';

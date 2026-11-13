@@ -189,7 +189,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, onAuthSucce
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={`${inputCls} pr-11`}
-                  placeholder="••••••••"
+                  placeholder={view === 'signup' ? '8 to 72 characters' : '••••••••'}
+                  minLength={view === 'signup' ? 8 : undefined}
+                  maxLength={view === 'signup' ? 72 : undefined}
+                  autoComplete={view === 'signup' ? 'new-password' : 'current-password'}
                   required
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}

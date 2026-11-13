@@ -54,6 +54,8 @@ npx vercel dev
 | `GEMINI_API_KEY` | Your Google Gemini API key |
 | `SUPABASE_URL` | Your Supabase project URL |
 | `SUPABASE_ANON_KEY` | Your Supabase anon key |
+| `GITHUB_OAUTH_ID`, `GITHUB_OAUTH_SECRET` | Only for the Decap CMS login proxy under `/api/decap` |
+| `DECAP_ALLOWED_ORIGINS` | Comma-separated sites allowed to use that proxy, e.g. `https://my-portfolio.vercel.app`. If it's unset, the proxy refuses to run. |
 
 > [!NOTE]
 > Plain `npm run dev` runs the frontend only — the `/api` routes require `vercel dev` (or a Vercel deployment).
@@ -77,4 +79,21 @@ The landing page features an auto-sweeping before/after demo. Swap in your own e
 
 ### Keep-alive
 
-A GitHub Actions workflow ([`.github/workflows/keep_alive.yml`](.github/workflows/keep_alive.yml)) pings Supabase hourly to keep the free-tier database from pausing. It requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository **Actions secrets**.
+A GitHub Actions workflow ([`.github/workflows/keep_alive.yml`](.github/workflows/keep_alive.yml)) calls a small `ping()` database function hourly to keep the free-tier database from pausing. It requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` as repository **Actions secrets**.
+
+## 🔒 Security
+
+What the code enforces:
+
+- **Secrets stay on the server.** The browser only talks to `/api`, and no keys are in the frontend bundle.
+- **Data isolation.** Postgres RLS and least-privilege grants limit every user to their own profile, archive rows and storage folder. Credits only change through `deduct_credits()`.
+- **Rate limits** per client IP on restore, sign-up, login and password reset (see `api/_lib/rateLimit.ts`).
+- **Security headers** in `vercel.json`, including a strict Content Security Policy that only allows scripts from this site.
+- **Sign-out revokes the session** in Supabase, and the refresh token never reaches the browser.
+
+Settings to check in dashboards, because code can't enforce these:
+
+- **Supabase → Authentication → URL Configuration:** set Site URL to your production URL, and list only your own domains under Redirect URLs.
+- **Supabase → Authentication → Providers → Email:** keep "Confirm email" on, and turn on "Secure password change". Turn on leaked-password protection if your plan has it.
+- **Google Cloud → APIs & Services → Credentials:** restrict the Gemini key to the Generative Language API, and set a budget alert.
+- **Vercel → Environment Variables:** set `DECAP_ALLOWED_ORIGINS` before relying on the CMS login proxy.

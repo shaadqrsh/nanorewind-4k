@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS "nanorewind-4k".profiles (
   last_refill TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Dummy
 -- Enable RLS
 ALTER TABLE "nanorewind-4k".profiles ENABLE ROW LEVEL SECURITY;
 
@@ -18,14 +17,14 @@ DROP POLICY IF EXISTS "Users can view own profile" ON "nanorewind-4k".profiles;
 CREATE POLICY "Users can view own profile" 
 ON "nanorewind-4k".profiles 
 FOR SELECT 
-USING (auth.uid() = user_id);
+USING ((SELECT auth.uid()) = user_id);
 
 -- Policy: Users can INSERT their own profile (for initial setup only)
 DROP POLICY IF EXISTS "Users can insert own profile" ON "nanorewind-4k".profiles;
 CREATE POLICY "Users can insert own profile" 
 ON "nanorewind-4k".profiles 
 FOR INSERT 
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- CRITICAL: NO UPDATE POLICY for users.
 -- This ensures users cannot modify their credits directly via API.
@@ -148,21 +147,41 @@ USING ((SELECT auth.uid()) = user_id);
 
 -- --- PERMISSIONS ---
 
--- 1. Grant usage on the custom schema to auth roles
+-- Least privilege. Every table is reached with the signed-in user's token
+-- (role "authenticated"), and RLS then limits rows to their own. "anon" (no
+-- token) needs no table access at all. Re-running this file on an existing
+-- project first revokes the broad grants older versions handed out.
+
 GRANT USAGE ON SCHEMA "nanorewind-4k" TO anon, authenticated, service_role;
 
--- 2. Grant access to tables in the schema
-GRANT ALL ON ALL TABLES IN SCHEMA "nanorewind-4k" TO anon, authenticated, service_role;
+REVOKE ALL ON ALL TABLES IN SCHEMA "nanorewind-4k" FROM anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA "nanorewind-4k" FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA "nanorewind-4k" REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA "nanorewind-4k" REVOKE ALL ON SEQUENCES FROM anon, authenticated;
 
--- 3. Grant access to sequences (for ID generation)
-GRANT ALL ON ALL SEQUENCES IN SCHEMA "nanorewind-4k" TO anon, authenticated, service_role;
+-- profiles: read your own row; create it once, and only the user_id column, so
+-- credits and last_refill always start at their defaults. No UPDATE or DELETE.
+GRANT SELECT ON "nanorewind-4k".profiles TO authenticated;
+GRANT INSERT (user_id) ON "nanorewind-4k".profiles TO authenticated;
 
--- 4. Ensure future tables also get these permissions
-ALTER DEFAULT PRIVILEGES IN SCHEMA "nanorewind-4k" GRANT ALL ON TABLES TO anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA "nanorewind-4k" GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+-- restorations: read, add and delete your own entries (enforced by RLS).
+GRANT SELECT, INSERT, DELETE ON "nanorewind-4k".restorations TO authenticated;
 
--- 5. Explicitly Grant Execute on the RPC function used for credits
-GRANT EXECUTE ON FUNCTION "nanorewind-4k".deduct_credits() TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA "nanorewind-4k" TO service_role;
+
+-- Credits can only change through this function, and only for the caller.
+REVOKE ALL ON FUNCTION "nanorewind-4k".deduct_credits() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION "nanorewind-4k".deduct_credits() TO authenticated, service_role;
+
+-- Keep-alive target for the hourly GitHub Action: touches the database without
+-- exposing any table to anonymous callers.
+CREATE OR REPLACE FUNCTION "nanorewind-4k".ping()
+RETURNS TIMESTAMPTZ
+LANGUAGE sql
+STABLE
+AS $$ SELECT now() $$;
+REVOKE ALL ON FUNCTION "nanorewind-4k".ping() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION "nanorewind-4k".ping() TO anon, authenticated, service_role;
 
 -- --- PLATE ARCHIVE: storage bucket ---
 

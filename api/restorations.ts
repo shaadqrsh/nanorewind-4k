@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './_lib/vercel.js';
 import { requireUser, AuthedContext } from './_lib/auth.js';
 import {
   PLATES_BUCKET,

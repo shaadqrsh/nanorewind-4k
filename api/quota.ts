@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './_lib/vercel.js';
 import { requireUser } from './_lib/auth.js';
 import { calculateCredits, Profile } from './_lib/profile.js';
 

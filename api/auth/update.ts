@@ -1,6 +1,7 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from '../_lib/vercel.js';
 import { getAuthConfig } from '../_lib/supabase.js';
 import { getBearerToken } from '../_lib/auth.js';
+import { cleanName, isNewPassword, NEW_PASSWORD_RULE } from '../_lib/validate.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -9,9 +10,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!token) return res.status(401).json({ error: 'Missing token' });
 
   const { name, password } = req.body || {};
-  const updates: { data?: { name: string }; password?: string } = {};
-  if (name !== undefined) updates.data = { name };
-  if (password !== undefined) updates.password = password;
+  const updates: { data?: { name: string | null }; password?: string } = {};
+  if (name !== undefined) updates.data = { name: cleanName(name) };
+  if (password !== undefined) {
+    if (!isNewPassword(password)) return res.status(400).json({ error: NEW_PASSWORD_RULE });
+    updates.password = password;
+  }
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: 'No updates provided' });

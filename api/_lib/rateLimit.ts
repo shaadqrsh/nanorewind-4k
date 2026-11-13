@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './vercel.js';
 import { getAnonSchemaClient } from './supabase.js';
 
 type Handler = (req: VercelRequest, res: VercelResponse) => unknown;

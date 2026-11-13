@@ -1,4 +1,4 @@
-import type { VercelRequest } from '@vercel/node';
+import type { VercelRequest } from '../_lib/vercel.js';
 
 /**
  * The public origin of this OAuth proxy (e.g. https://nanorewind-4k.vercel.app).

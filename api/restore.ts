@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './_lib/vercel.js';
 import { requireUser } from './_lib/auth.js';
 import { withRateLimit } from './_lib/rateLimit.js';
 import { ai, IMAGE_MODEL } from './_lib/gemini.js';
@@ -6,6 +6,22 @@ import { archiveRestoration, RestorationDTO } from './_lib/archive.js';
 
 const PROCESSES = ['standard', 'silver-gelatin', 'albumen', 'cyanotype', 'autochrome', 'kodachrome'];
 const UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+// Checks the file's leading bytes match its declared type, so arbitrary data
+// labelled "image/png" is rejected before it costs a credit or gets stored.
+const matchesSignature = (base64: string, mimeType: string): boolean => {
+  const b = Buffer.from(base64.slice(0, 24), 'base64');
+  switch (mimeType) {
+    case 'image/png':
+      return b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    case 'image/jpeg':
+      return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+    case 'image/webp':
+      return b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP';
+    default:
+      return false;
+  }
+};
 
 async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -15,7 +31,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { image, mimeType, originalName, chiaroscuro, matte } = req.body || {};
   // Validate before deducting a credit, so a bad request never costs one.
-  if (typeof image !== 'string' || !image || !UPLOAD_TYPES.includes(mimeType)) {
+  if (
+    typeof image !== 'string' || !image ||
+    !UPLOAD_TYPES.includes(mimeType) || !matchesSignature(image, mimeType)
+  ) {
     return res.status(400).json({ error: 'Upload a JPG, PNG or WebP image.' });
   }
   const process: string = PROCESSES.includes(req.body.process) ? req.body.process : 'standard';
@@ -93,7 +112,9 @@ async function handler(req: VercelRequest, res: VercelResponse) {
         original: {
           base64: image,
           mimeType,
-          name: typeof originalName === 'string' ? originalName.slice(0, 200) : null,
+          name: typeof originalName === 'string'
+            ? originalName.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 200) || null
+            : null,
         },
         restored: { base64: restoredBase64, mimeType: restoredMime },
         treatment: { process, chiaroscuro: !!chiaroscuro, matte: !!matte },
@@ -105,7 +126,7 @@ async function handler(req: VercelRequest, res: VercelResponse) {
     res.json({ image: `data:${restoredMime};base64,${restoredBase64}`, restoration });
   } catch (err) {
     console.error('Restore error:', err);
-    res.status(500).json({ error: (err as Error).message });
+    res.status(500).json({ error: 'Restoration failed. Please try again.' });
   }
 }
 
