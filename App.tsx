@@ -3,6 +3,7 @@ import { Dropzone } from './components/Dropzone';
 import { Header } from './components/Header';
 import { RestoredView } from './components/RestoredView';
 import { AuthScreen } from './components/AuthScreen';
+import { LandingPage } from './components/LandingPage';
 import { PromptSelector, PromptOptions, toPromptOptions } from './components/PromptSelector';
 import { SettingsModal } from './components/SettingsModal';
 import { ArchiveView } from './components/ArchiveView';
@@ -14,7 +15,36 @@ import { AlertCircle, Wand2, Check, X, XCircle, Loader2, History } from 'lucide-
 import { Button } from './components/Button';
 import { Countdown } from './components/Countdown';
 
+// Signed-out screens live in the URL hash (#signin / #signup) so Back and
+// reloads work without needing SPA rewrites for real paths.
+type PublicView = 'landing' | 'signin' | 'signup';
+
+const viewFromHash = (): PublicView =>
+  window.location.hash === '#signin' ? 'signin'
+    : window.location.hash === '#signup' ? 'signup'
+      : 'landing';
+
 export const App: React.FC = () => {
+  const [publicView, setPublicView] = useState<PublicView>(viewFromHash);
+
+  useEffect(() => {
+    const sync = () => setPublicView(viewFromHash());
+    window.addEventListener('hashchange', sync);
+    window.addEventListener('popstate', sync);
+    return () => {
+      window.removeEventListener('hashchange', sync);
+      window.removeEventListener('popstate', sync);
+    };
+  }, []);
+
+  const goTo = useCallback((view: PublicView, replace = false) => {
+    const url = view === 'landing' ? window.location.pathname + window.location.search : `#${view}`;
+    if (replace) window.history.replaceState(null, '', url);
+    else window.history.pushState(null, '', url);
+    setPublicView(view);
+    window.scrollTo(0, 0);
+  }, []);
+
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -155,6 +185,7 @@ export const App: React.FC = () => {
     setActiveRestorationId(null);
     setShowArchive(false);
     archive.reset();
+    goTo('landing', true);
   };
 
   const handleOpenArchive = () => {
@@ -190,6 +221,8 @@ export const App: React.FC = () => {
       });
       setIsSignedIn(true);
       await refreshQuota();
+      // Drop #signin/#signup so a later sign-out lands on the home page.
+      goTo('landing', true);
     }
     setIsDataLoaded(true);
   };
@@ -220,7 +253,19 @@ export const App: React.FC = () => {
     );
   }
 
-  if (!isSignedIn) return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  if (!isSignedIn) {
+    if (publicView === 'landing') {
+      return <LandingPage onSignIn={() => goTo('signin')} onSignUp={() => goTo('signup')} />;
+    }
+    return (
+      <AuthScreen
+        key={publicView}
+        initialView={publicView === 'signup' ? 'signup' : 'login'}
+        onAuthSuccess={handleAuthSuccess}
+        onBack={() => goTo('landing')}
+      />
+    );
+  }
 
   const buttonConfig = !quota.allowed
     ? { text: 'No credits left', icon: XCircle, variant: 'danger' as const, disabled: true }

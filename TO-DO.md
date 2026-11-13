@@ -6,8 +6,8 @@ This document serves as a guide for implementing new features and enhancements f
 
 ## 📅 Roadmap Overview
 
-1. [ ] **[Phase 1] The Plate Archive (Restoration Library)** — built, awaiting live test
-2. [ ] **[Phase 2] The Atelier Entrance (Landing Page)**
+1. [x] **[Phase 1] The Plate Archive (Restoration Library)**
+2. [ ] **[Phase 2] The Atelier Entrance (Landing Page)** — built, awaiting test
 3. [ ] **[Phase 3] API Rate-Limiting Decorator**
 4. [ ] **[Phase 4] Suggested Enhancements (Batching, Sharing, Fine-Tuning)**
 
@@ -37,23 +37,23 @@ This document serves as a guide for implementing new features and enhancements f
 **Goal:** Create a stunning, high-conversion landing page to showcase NanoRewind's capabilities before prompting visitors to sign up or log in.
 
 #### **UI/UX & Interactive Elements**
-- [ ] **Hero Section:** A minimalist, premium header displaying:
+- [x] **Hero Section:** A minimalist, premium header displaying:
     - *"Restore history to 4K. Old, scratched, or faded memories developed in seconds."*
     - Sleek hover micro-animations and typography (e.g., Outfit or Inter).
-- [ ] **Interactive Demo Slider:**
+- [x] **Interactive Demo Slider:**
   - A preloaded, high-resolution before/after example using the interactive `RestoredView` slider component. Users should be able to slide and preview the AI's power instantly without logging in.
-- [ ] **Features Grid:** Highlighting:
+- [x] **Features Grid:** Highlighting:
   - 🪄 **Scratch Repair** — Erasing cracks, tears, and dust.
   - 🎨 **Chrominance Correction** — Automatic color balances.
   - 🎯 **4K Resolution** — High-definition upscaling.
   - ⏳ **Atelier Limits** — 3 free credits daily.
-- [ ] **Call to Action (CTA):** Prominent buttons ("Enter the Atelier", "Restore a Photo") that seamlessly route the user to the Sign-up / Login screen.
+- [x] **Call to Action (CTA):** Prominent buttons ("Enter the Atelier", "Restore a Photo") that seamlessly route the user to the Sign-up / Login screen.
 
 #### **Implementation Details**
-- [ ] **Routing / View State:**
+- [x] **Routing / View State:**
   - Update `App.tsx` state to support three main screens: `'landing' | 'auth' | 'app'`.
   - If the user is unauthenticated, default to the `'landing'` state instead of prompting immediately with the auth screen.
-- [ ] **SEO Optimization:**
+- [x] **SEO Optimization:**
   - Add descriptive titles, meta descriptions, and OpenGraph tags (for previews on Discord, Twitter, and iMessage).
 
 ---

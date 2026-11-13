@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { History, ArrowRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { History, ArrowRight, ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { authService } from '../services/auth';
 import { Button } from './Button';
 import { BeforeAfterShowcase } from './BeforeAfterShowcase';
 
+export type AuthState = 'login' | 'signup';
+
 interface AuthScreenProps {
+  initialView: AuthState;
   onAuthSuccess: () => void;
+  onBack: () => void;
 }
 
-type AuthState = 'login' | 'signup';
-
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
-  const [view, setView] = useState<AuthState>('login');
+export const AuthScreen: React.FC<AuthScreenProps> = ({ initialView, onAuthSuccess, onBack }) => {
+  const [view, setView] = useState<AuthState>(initialView);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -116,12 +118,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.07] via-transparent to-patina-500/[0.04]" />
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-amber-500/10 blur-[120px] animate-safelight-pulse" />
 
-        <div className="relative flex items-center gap-3">
-          <div className="grid place-items-center w-10 h-10 bg-ink-900 border border-ink-700 shadow-safelight">
+        <button onClick={onBack} title="Back to home" className="relative self-start flex items-center gap-3 group">
+          <div className="grid place-items-center w-10 h-10 bg-ink-900 border border-ink-700 shadow-safelight group-hover:border-amber-500/50 transition-colors">
             <History className="w-5 h-5 text-amber-500" strokeWidth={2} />
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-400">NanoRewind</span>
-        </div>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-ink-400 group-hover:text-amber-400 transition-colors">NanoRewind</span>
+        </button>
 
         <div className="relative">
           <p className="font-mono text-[10px] uppercase tracking-widest text-amber-500/70 mb-5">AI photo restoration · 4K</p>
@@ -153,12 +155,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       <div className="relative flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm animate-rise">
           {/* Mobile mark */}
-          <div className="lg:hidden flex items-center gap-3 mb-10">
+          <button onClick={onBack} title="Back to home" className="lg:hidden flex items-center gap-3 mb-10">
             <div className="grid place-items-center w-11 h-11 bg-ink-900 border border-ink-700 shadow-safelight">
               <History className="w-5 h-5 text-amber-500" strokeWidth={2} />
             </div>
             <span className="font-display text-xl font-semibold text-ink-100">NanoRewind</span>
-          </div>
+          </button>
+
+          <button onClick={onBack}
+            className="mb-6 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ink-500 hover:text-amber-400 transition-colors">
+            <ArrowLeft className="w-3 h-3" /> Back
+          </button>
 
           <h1 className="font-display text-3xl font-semibold text-ink-100 mb-1.5">
             {view === 'login' ? 'Sign in' : 'Create an account'}
