@@ -1,13 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#2b1517"/>
+  <rect x="13" y="13" width="19" height="38" fill="#8c6a5f"/>
+  <rect x="32" y="13" width="19" height="38" fill="#f0e5d7"/>
+  <rect x="31" y="13" width="2" height="38" fill="#2b1517"/>
   <g fill="#e3a95e">
-    <path d="M10 10h14L10 24z"/>
-    <path d="M54 10v14L40 10z"/>
-    <path d="M10 54V40l14 14z"/>
-    <path d="M54 54H40l14-14z"/>
-  </g>
-  <g transform="translate(17 17) scale(1.25)" fill="none" stroke="#f0e5d7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 12"/>
-    <path d="M3 3v9h9"/>
+    <path d="M10 10h12L10 22z"/>
+    <path d="M54 10v12L42 10z"/>
+    <path d="M10 54V42l12 12z"/>
+    <path d="M54 54H42l12-12z"/>
   </g>
 </svg>

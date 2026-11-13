@@ -10,7 +10,7 @@ This document serves as a guide for implementing new features and enhancements f
 2. [x] **[Phase 2] The Atelier Entrance (Landing Page)**
 3. [x] **[Phase 3] API Rate-Limiting Decorator** (plus a security audit)
 4. [x] **[Phase 4] Suggested Enhancements (Sharing, Batching)**
-5. [ ] **[Phase 5] UI Redesign (Anti-Pattern Checklist)** (built, awaiting test)
+5. [x] **[Phase 5] UI Redesign (Anti-Pattern Checklist)**
 6. [ ] **[Phase 6] Compliance, SEO & Accessibility**
 7. [ ] **[Phase 7] Paid Features (Stripe & Custom Domain)**
 8. [ ] **[Phase 8] Fine-Tuning Treatment Drawer** (moved from the suggested enhancements)

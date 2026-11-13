@@ -43,7 +43,8 @@ a { color: inherit; }
   gap: 16px;
   flex-wrap: wrap;
 }
-.brand { font: 23px/1 var(--serif); text-decoration: none; white-space: nowrap; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font: 23px/1 var(--serif); text-decoration: none; white-space: nowrap; }
+.brand img { display: block; width: 32px; height: 32px; }
 .brand span { color: var(--brass); }
 
 .wrap {
