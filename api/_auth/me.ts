@@ -5,7 +5,9 @@ import { clearPkceCookie, readPkceCookie, setSessionCookies } from '../_lib/cook
 import { publicUser } from '../_lib/session.js';
 import { gotrue, GoTrueSession } from '../_lib/gotrue.js';
 
-// GET  /api/auth/me  → the signed-in user (renewing the session if needed)
+// GET  /api/auth/me  → { user } for the signed-in user (renewing the session if
+//                      needed), or { user: null }. Signed-out visitors get a
+//                      200 rather than a 401, which browsers log as an error.
 // POST /api/auth/me  → start a session in HttpOnly cookies from:
 //                      { code }  the one-time code in an email link (PKCE), or
 //                      { access_token, refresh_token }  legacy tokens: emails
@@ -21,10 +23,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function getMe(req: VercelRequest, res: VercelResponse) {
   try {
     const session = await resolveSession(req, res);
-    if (!session) return res.status(401).json({ error: 'Not signed in' });
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!session) return res.json({ user: null });
 
     await ensureProfileExists({ user: session.user, access_token: session.token });
-    res.setHeader('Cache-Control', 'private, no-store');
     res.json({ user: publicUser(session.user) });
   } catch (err) {
     console.error('Session check failed:', err);

@@ -11,7 +11,7 @@ This document serves as a guide for implementing new features and enhancements f
 3. [x] **[Phase 3] API Rate-Limiting Decorator** (plus a security audit)
 4. [x] **[Phase 4] Suggested Enhancements (Sharing, Batching)**
 5. [x] **[Phase 5] UI Redesign (Anti-Pattern Checklist)**
-6. [ ] **[Phase 6] Compliance, SEO & Accessibility**
+6. [ ] **[Phase 6] Compliance, SEO & Accessibility** (built, awaiting test)
 7. [ ] **[Phase 7] Paid Features (Stripe & Custom Domain)**
 8. [ ] **[Phase 8] Fine-Tuning Treatment Drawer** (moved from the suggested enhancements)
 
@@ -165,55 +165,68 @@ This document serves as a guide for implementing new features and enhancements f
 #### **Pages & Navigation**
 - [x] Custom 404 page (`public/404.html`)
 - [x] One clear heading (`<h1>`) per page
-- [x] Internal links between pages (landing footer, auth breadcrumb, share and 404 pages link home). Add the policy pages to the footer in phase 8.
-- [x] Breadcrumbs on nested pages (sign in, share pages, 404). Policy pages should get them too.
+- [x] Internal links between pages (landing footer, auth breadcrumb, share and 404 pages link home). Every footer now links the policy pages too.
+- [x] Breadcrumbs on nested pages (sign in, share pages, 404, policy pages).
 - [x] Proper favicon set
-- [x] Social share images for every public page (`og-card.jpg` for the landing and sign-in screens, a generated card per share link)
+- [x] Social share images for every public page (`og-card.jpg` for the landing, sign-in and policy pages, a generated card per share link)
 
 ---
 
 ### 8. ⚖️ Compliance, SEO & Accessibility
 **Goal:** Make the app legally sound, honest, discoverable and accessible before a public launch.
 
-#### **Legal & Policies**
-- [ ] Add a Privacy Policy page
-- [ ] Add a Terms of Service page
-- [ ] Add a Cookie Policy page
-- [ ] Add a cookie consent banner
-- [ ] Add business details (name, contact, address)
-- [ ] License all fonts and images used
+#### **Legal & Policies** (`components/legal/`, facts in `utils/site.ts`)
+- [x] **Privacy Policy** at `/privacy`: what's collected, the Gemini free-tier wording (Google may keep photos, use them to improve its products and have people review them), service providers, the shared sign-in, retention, rights under India's DPDP Act, the GDPR and US state laws, and grievances.
+- [x] **Terms of Service** at `/terms`: 18+, the real allowance (3 to start, 1 more every 24 hours), AI can change details, output is about one megapixel ("4K" is the brand), upload rules, as-is service. No governing-law clause.
+- [x] **Cookie Policy** at `/cookies`: a table of the three sign-in cookies and the two local-storage settings.
+- [x] **Cookie notice:** info only, with an OK button and a link to the policy. There's no accept/reject banner because nothing optional is stored. Add a real consent step if analytics are ever added.
+- [x] **Business details:** Shaad Qureshi, Maharashtra, India. Contact and grievances go to GitHub issues (no email or street address, by choice). Revisit the address for the Stripe phase.
+- [x] **Licenses:** fonts are self-hosted with their OFL files (`public/fonts/`), icons are Lucide (ISC), and the sample photo is the operator's own family photo, used with permission. Credits are in the Terms.
 
 #### **Data & Consent**
-- [ ] Check form consents (signup, any checkboxes)
-- [ ] Don't collect unnecessary data
-- [ ] Audit third-party SDKs
-- [ ] Get age consent if collecting kids' data
-- [ ] Add an unsubscribe link to emails
-- [ ] Add a data deletion request option
+- [x] **Signup consent:** a required, unticked box ("I'm 18 or older, and I agree to the terms and privacy policy"). The API rejects sign-ups without it and stores `nanorewind_terms_agreed_at` in the user metadata.
+- [x] **Less data:** the name is optional. Photo metadata (EXIF GPS location, camera, dates, XMP, IPTC, comments, appended images) is stripped in the browser before upload (`utils/stripMetadata.ts`), losslessly. Rotated JPEGs are redrawn upright instead.
+- [x] **Third parties:** the browser bundle has only React and Lucide icons. Google Fonts was removed (it sent every visitor's IP to Google). The only services are Vercel, Supabase and the Gemini API, all named in the privacy policy.
+- [x] **Age:** 18+, because India's DPDP Act counts everyone under 18 as a child (parental consent needed) and the Gemini API terms rule out apps used by under-18s.
+- [x] **Unsubscribe:** not applicable. The only emails are sign-up confirmation and password reset. The privacy policy says so. (The email templates are shared with the other app, so they weren't changed.)
+- [x] **Data deletion:** Settings has **Your data, Delete all my photos** (`DELETE /api/restorations?all=1`, which also sweeps leftover files). The shared sign-in is removed on request via GitHub issues.
+- [ ] Photos uploaded before this phase still carry whatever metadata they had. They're private unless shared, but consider stripping stored originals server-side or asking users to re-share.
 
 #### **Honest Marketing**
-- [ ] Remove dark patterns
-- [ ] Remove unsupported claims
+- [x] **Dark patterns:** reviewed. No pre-ticked boxes, no confirmshaming, policies readable without an account, and deleting photos or turning off a link takes one step. The leave-page warning only appears while a restore is running.
+- [x] **Unsupported claims fixed:**
+  - "3 free restorations a day" was wrong, because the logic refills 1 credit per 24 hours. The copy is now "3 to start, and 1 more every 24 hours" everywhere, including `og-card.jpg`, which was redrawn.
+  - "A few seconds" is now "up to a minute".
+  - "Keeping the detail underneath" is now "by redrawing the damaged areas".
+  - Small scans now say about one megapixel.
+  - The landing page notes that the AI can change faces and writing.
+  - The README tagline no longer says "crisp 4K in seconds".
 
 #### **Accessibility**
-- [ ] Add alt text to images
-- [ ] Fix color contrast ratios
-- [ ] Add keyboard navigation
+- [x] **Alt text:** checked every image. Content photos are described; decorative thumbnails next to their own labels use `alt=""`.
+- [x] **Contrast:** all text passes AA (lowest 5.37:1, quiet text on panels). Input borders went from 1.47:1 to 3:1, and focus is now a 2px brass ring.
+- [x] **Keyboard:**
+  - Skip links on every page.
+  - Dialogs keep Tab inside, return focus to what opened them, and close one at a time when stacked.
+  - The account menu is a disclosure button (Escape returns focus).
+  - The credits countdown is no longer re-announced by screen readers every minute.
+  - The cookie table's scroll area can be focused.
+  - Headers no longer overflow on small phones.
 
-#### **SEO & Metadata**
-- [ ] Proper page slugs (real routes like `/archive`, `/privacy`, `/terms` instead of in-app view state)
-- [ ] Unique page title per page
-- [ ] Unique meta description per page
-- [ ] Canonical tag per page (landing page already has one)
-- [ ] Add `sitemap.xml`
-- [ ] Add `robots.txt`
-- [ ] Add `llms.txt`
-- [ ] Add structured data (JSON-LD: `WebApplication` / `Organization`)
+#### **SEO & Metadata** (`utils/routes.ts`, `vite.config.ts`)
+- [x] **Slugs:** `/`, `/signin`, `/signup`, `/album`, `/privacy`, `/terms` and `/cookies`, served by Vercel `cleanUrls`. Old `#signin`, `#signup` and `#album` links are moved to the new paths.
+- [x] **Titles and descriptions:** one `PAGE_META` table. The build writes an HTML file per page with its own head tags, and the app updates them on navigation.
+- [x] **Canonical tag** per page, plus `noindex` on sign-in, sign-up and album.
+- [x] **`sitemap.xml`:** generated at build from the indexable pages.
+- [x] **`robots.txt`:** blocks `/api/` except `/api/share`, which serves link-preview cards.
+- [x] **`llms.txt`:** a plain summary with the key facts and links.
+- [x] **Structured data:** `WebSite`, `WebApplication` (free offer) and `Person` on the home page. The operator is a person, so there's no `Organization`.
+- [x] **Policy pages are static HTML,** prerendered at build with no JavaScript, so any crawler can read them.
 
 #### **Production Build**
-- [ ] Fix all console errors and warnings
+- [x] **Console:** signed-out visits no longer log a 401 from `/api/auth/me` (it now returns `{ user: null }`). There are no warnings in the dev or production builds (checked in headless Chrome).
 - [x] No production source maps (Vite's default; confirmed no `.map` files in `dist/`)
-- [ ] Reduce the JavaScript bundle (currently one 311 KB chunk; code-split routes and heavy components)
+- [x] **Bundle:** the single 298 KB chunk is now split. React is 222 KB, cached separately, and the home page code is 29 KB. The workspace (46 KB) and sign-in (7 KB) load on demand. Home page JS went from 91 to 79 KB gzipped, most of it React.
 
 ---
 

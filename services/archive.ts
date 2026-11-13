@@ -31,4 +31,11 @@ export const archiveService = {
     const res = await fetch(`/api/restorations?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     await expectJson(res, 'Could not delete this restoration');
   },
+
+  // Deletes every restoration the user has, with its files and share links.
+  removeAll: async (): Promise<number> => {
+    const res = await fetch('/api/restorations?all=1', { method: 'DELETE' });
+    const data = await expectJson<{ deleted: number }>(res, 'Your photos could not be deleted');
+    return data.deleted;
+  },
 };

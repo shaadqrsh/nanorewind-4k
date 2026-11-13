@@ -12,16 +12,31 @@ interface ModalProps {
 
 const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' };
 
+// Open dialogs, oldest first. Only the top one reacts to Escape and Tab, so a
+// confirmation opened from inside another dialog closes on its own.
+const openDialogs: symbol[] = [];
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 // The one dialog shell: a solid scrim, a raised panel, a title and a close button.
 // Escape closes it; the listener runs in the capture phase and stops there, so a
-// dialog on top of another view only closes itself.
+// dialog on top of another view only closes itself. Tab stays inside the
+// dialog, and focus goes back to where it was when the dialog closes.
 export const Modal: React.FC<ModalProps> = ({ title, onClose, children, size = 'md', busy = false, z = 'z-[100]' }) => {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const idRef = useRef<symbol>(Symbol('dialog'));
+  const isTop = () => openDialogs[openDialogs.length - 1] === idRef.current;
+
+  useEffect(() => {
+    const id = idRef.current;
+    openDialogs.push(id);
+    return () => { openDialogs.splice(openDialogs.indexOf(id), 1); };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || !onClose) return;
+      if (e.key !== 'Escape' || !onClose || !isTop()) return;
       e.stopPropagation();
       if (!busy) onClose();
     };
@@ -29,13 +44,31 @@ export const Modal: React.FC<ModalProps> = ({ title, onClose, children, size = '
     return () => window.removeEventListener('keydown', onKey, true);
   }, [busy, onClose]);
 
-  // Move focus into the dialog so keyboard users start inside it.
+  // Move focus into the dialog so keyboard users start inside it, and put it
+  // back on the button that opened it afterwards (if that's still on screen).
   useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
-    if (!panel || panel.contains(document.activeElement)) return;
-    const first = panel.querySelector<HTMLElement>('input, button:not([data-close]), a[href], textarea, select');
-    (first ?? panel).focus();
+    if (panel && !panel.contains(document.activeElement)) {
+      const first = panel.querySelector<HTMLElement>('input, button:not([data-close]), a[href], textarea, select');
+      (first ?? panel).focus();
+    }
+    return () => {
+      if (opener && opener !== document.body && document.contains(opener)) opener.focus();
+    };
   }, []);
+
+  const trapTab = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab' || !isTop()) return;
+    const panel = panelRef.current!;
+    const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(el => el.getClientRects().length > 0);
+    if (items.length === 0) { e.preventDefault(); return; }
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === panel)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+  };
 
   return (
     <div
@@ -48,6 +81,7 @@ export const Modal: React.FC<ModalProps> = ({ title, onClose, children, size = '
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        onKeyDown={trapTab}
         className={`relative w-full ${widths[size]} max-h-[90vh] overflow-y-auto bg-panel border border-rule rounded-md p-6 sm:p-7 outline-none`}
       >
         {onClose && (

@@ -1,0 +1,31 @@
+# NanoRewind 4K
+
+> A free web app that restores old family photos with Google's Gemini image model. It repairs scratches, tears, dust and faded color, and sharpens soft or small scans. Every result is saved to a private album. Run by Shaad Qureshi, an individual in Maharashtra, India.
+
+Key facts:
+
+- Free. Each account starts with 3 restorations and gets 1 more every 24 hours, holding up to 3 at a time. No payment card is needed.
+- Upload JPG, PNG or WebP photos, up to 10 at once. Photo metadata such as GPS location is removed in the browser before upload.
+- Six styles: natural color (the default), black and white, sepia, cyanotype blue, soft pastel and vivid film. Optional extras: deeper shadows and a matte finish.
+- Restored copies come out at about one megapixel (for example 1024 by 1024 pixels). "4K" is part of the name, not the output size.
+- Results are made by AI, so faces, writing and other small details can differ from the original.
+- Photos are sent to Google's Gemini API on its free tier, so Google may keep them and use them to improve its products.
+- Results can be compared with the original (side by side, a slider or a magnifying loupe), downloaded, or shared with an unlisted link that can be turned off at any time.
+- For people 18 or older.
+
+## Pages
+
+- [Home](https://nanorewind-4k.vercel.app/): what the app fixes, the styles and how it works
+- [Create an account](https://nanorewind-4k.vercel.app/signup)
+- [Sign in](https://nanorewind-4k.vercel.app/signin)
+
+## Policies
+
+- [Privacy policy](https://nanorewind-4k.vercel.app/privacy): what is collected, who handles it, how long it is kept and how to delete it
+- [Terms of service](https://nanorewind-4k.vercel.app/terms): who can use it, what may be uploaded and what the service promises
+- [Cookie policy](https://nanorewind-4k.vercel.app/cookies): only cookies needed for signing in, no analytics or ads
+
+## Optional
+
+- [Source code](https://github.com/shaadqrsh/nanorewind-4k)
+- [Contact and requests](https://github.com/shaadqrsh/nanorewind-4k/issues)

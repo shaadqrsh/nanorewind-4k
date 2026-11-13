@@ -177,7 +177,7 @@ export const AlbumView: React.FC<AlbumViewProps> = ({
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1440px] px-4 sm:px-9 pt-10 pb-24 flex flex-col gap-9">
+    <main id="main" tabIndex={-1} className="flex-1 mx-auto w-full max-w-[1440px] px-4 sm:px-9 pt-10 pb-24 flex flex-col gap-9 outline-none">
       <div className="flex flex-col gap-2.5">
         <h1 className="font-display text-[clamp(38px,5vw,58px)] leading-none">Album</h1>
         <p className="text-bone-2">

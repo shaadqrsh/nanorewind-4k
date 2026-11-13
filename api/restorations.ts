@@ -11,6 +11,7 @@ import {
 // GET    /api/restorations[?before=<createdAt>]  → newest-first page of the caller's archive
 // PATCH  /api/restorations?id=<uuid>  { shared }  → start or stop a public share link
 // DELETE /api/restorations?id=<uuid>              → remove one restoration and its files
+// DELETE /api/restorations?all=1                  → remove every restoration the caller has
 //
 // One function serves all methods to stay inside Vercel Hobby's 12-function limit.
 
@@ -29,6 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (req.method === 'GET') return await list(ctx, req, res);
     if (req.method === 'PATCH') return await setShared(ctx, req, res);
+    if (req.query.all === '1') return await removeAll(ctx, res);
     return await remove(ctx, req, res);
   } catch (err) {
     console.error(`Restorations ${req.method} error:`, err);
@@ -97,6 +99,48 @@ async function remove(ctx: AuthedContext, req: VercelRequest, res: VercelRespons
   if (deleteError) throw deleteError;
 
   res.json({ success: true });
+}
+
+// "Delete all my photos" in Settings. Works through the archive in batches:
+// files first, then their rows, so a failure part-way leaves nothing pointing
+// at missing files, and running it again carries on where it stopped. A last
+// sweep removes any files in the caller's folder that no row points at.
+const DELETE_BATCH = 100;
+
+async function removeAll(ctx: AuthedContext, res: VercelResponse) {
+  const bucket = ctx.supabase.storage.from(PLATES_BUCKET);
+  let deleted = 0;
+
+  for (;;) {
+    const { data, error } = await ctx.supabase
+      .from('restorations')
+      .select('id, original_path, restored_path')
+      .eq('user_id', ctx.user.id)
+      .limit(DELETE_BATCH);
+    if (error) throw error;
+    const rows = data ?? [];
+    if (rows.length === 0) break;
+
+    const { error: storageError } = await bucket.remove(rows.flatMap((r) => [r.original_path, r.restored_path]));
+    if (storageError) throw storageError;
+    const { error: deleteError } = await ctx.supabase.from('restorations').delete().in('id', rows.map((r) => r.id));
+    if (deleteError) throw deleteError;
+
+    deleted += rows.length;
+    if (rows.length < DELETE_BATCH) break;
+  }
+
+  // Leftover files: <user_id>/<restoration_id>/<file>. Bounded, so one call
+  // can't run forever; the leftovers are normally none at all.
+  const { data: folders } = await bucket.list(ctx.user.id, { limit: 100 });
+  for (const folder of folders ?? []) {
+    const prefix = `${ctx.user.id}/${folder.name}`;
+    const { data: files } = await bucket.list(prefix, { limit: 100 });
+    const paths = (files ?? []).map((f) => `${prefix}/${f.name}`);
+    if (paths.length > 0) await bucket.remove(paths);
+  }
+
+  res.json({ deleted });
 }
 
 // Share links are 16 random URL-safe characters (96 bits), made here rather

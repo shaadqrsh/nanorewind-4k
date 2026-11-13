@@ -130,8 +130,8 @@ function sendPage(res: VercelResponse, status: number, html: string) {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; " +
-      "font-src https://fonts.gstatic.com; img-src 'self' data: https://*.supabase.co; manifest-src 'self'; " +
+    "default-src 'none'; script-src 'self'; style-src 'self'; " +
+      "font-src 'self'; img-src 'self' data: https://*.supabase.co; manifest-src 'self'; " +
       "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   );
   res.status(status).send(html);
@@ -148,23 +148,24 @@ ${head}
 <link rel="icon" href="/favicon.ico?v=2" sizes="32x32">
 <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="preload" href="/fonts/atkinson-hyperlegible-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/young-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/share-viewer.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="bar">
   <div class="bar-in">
     <a class="brand" href="/"><img src="/favicon.svg?v=2" alt="" width="32" height="32">NanoRewind <span>4K</span></a>
-    <a class="btn btn-quiet" href="/#signup">Restore your own</a>
+    <a class="btn btn-quiet" href="/signup">Restore your own</a>
   </div>
 </header>
-<main class="wrap">
+<main class="wrap" id="main" tabindex="-1">
 <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="/">NanoRewind 4K</a></li><li aria-current="page">${esc(crumb)}</li></ol></nav>
 ${body}
 </main>
-<footer class="foot"><div class="foot-in"><span>NanoRewind 4K</span><a href="/">Restore old family photos</a></div></footer>
+<footer class="foot"><div class="foot-in"><span>NanoRewind 4K</span><nav aria-label="Site"><a href="/">Restore old family photos</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/cookies">Cookies</a></nav></div></footer>
 </body>
 </html>`;
 
@@ -210,9 +211,9 @@ function sharePage(origin: string, id: string, r: SharedRestoration): string {
 <section class="cta">
   <div>
     <h2>Have an old photo of your own?</h2>
-    <p>NanoRewind 4K repairs damage and faded color. 3 free restorations a day.</p>
+    <p>NanoRewind 4K repairs damage and faded color in old photos. Free to try, no card needed.</p>
   </div>
-  <a class="btn" href="/#signup">Restore a photo</a>
+  <a class="btn" href="/signup">Restore a photo</a>
 </section>`;
 
   return shell(head, 'Shared photo', body);

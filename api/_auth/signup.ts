@@ -11,9 +11,14 @@ async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!blockCrossSite(req, res)) return;
 
-  const { email, password, name, redirectTo } = req.body || {};
+  const { email, password, name, redirectTo, agreed } = req.body || {};
   if (!isEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
   if (!isNewPassword(password)) return res.status(400).json({ error: NEW_PASSWORD_RULE });
+  // The sign-up form's required box: 18 or older, and agrees to the terms and
+  // privacy policy. When they agreed is kept with the account as a record.
+  if (agreed !== true) {
+    return res.status(400).json({ error: "Tick the box to confirm you're 18 or older and agree to the terms." });
+  }
 
   try {
     // PKCE: the confirmation link will carry a one-time code, not tokens.
@@ -23,7 +28,10 @@ async function handler(req: VercelRequest, res: VercelResponse) {
       body: {
         email,
         password,
-        data: { name: cleanName(name) },
+        data: {
+          ...(cleanName(name) ? { name: cleanName(name) } : {}),
+          nanorewind_terms_agreed_at: new Date().toISOString(),
+        },
         code_challenge: challenge,
         code_challenge_method: 's256',
       },

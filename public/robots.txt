@@ -1,0 +1,9 @@
+# NanoRewind 4K
+# Shared photo pages (/share/...) stay crawlable so link previews work; they
+# carry a noindex tag instead. The share-card images are served from
+# /api/share, so that path is allowed too.
+User-agent: *
+Allow: /api/share
+Disallow: /api/
+
+Sitemap: https://nanorewind-4k.vercel.app/sitemap.xml

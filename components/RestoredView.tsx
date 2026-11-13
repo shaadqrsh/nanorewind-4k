@@ -245,7 +245,7 @@ export const RestoredView: React.FC<RestoredViewProps> = ({
         </MountedPhoto>
         <div className="text-center" role="status">
           <p className="font-display text-2xl">Restoring your photo</p>
-          <p className="text-bone-2 mt-1">This usually takes a few seconds.</p>
+          <p className="text-bone-2 mt-1">This can take up to a minute.</p>
         </div>
       </div>
     );

@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🖼️ NanoRewind — 4K Image Restoration
+# 🖼️ NanoRewind 4K — Old Photo Restoration
 
-**A free, AI-powered image restoration tool using Google Gemini.**
+**A free photo restoration app built on Google Gemini.**
 
-Restore old, scratched, or blurry photos to crisp 4K in seconds.
+Repair scratches, tears and faded color in old family photos.
 
 <br/>
 
@@ -22,14 +22,15 @@ Restore old, scratched, or blurry photos to crisp 4K in seconds.
 ## ✨ Features
 
 - 🪄 **Photo restoration** — repair old, scratched, or blurry photos.
-- 🎯 **High-resolution output** — sharper, upscaled restorations. (Results are about 1K today; true 4K output is planned for the paid tier.)
+- 🎯 **Sharper output** — restorations come out at about one megapixel (e.g. 1024 × 1024). "4K" is the brand name; true 4K output is planned for the paid tier.
 - 🎞️ **Developer processes** — render results in distinct photographic styles: Standard, Silver Gelatin (B&W), Albumen (sepia), Cyanotype, Lumière Autochrome, and Kodachrome 64.
 - 🌗 **Atmospheric modifiers** — optional Chiaroscuro (deeper dramatic shadows) and Matte Emulsion (softened vintage-paper highlights).
 - 🔍 **Three ways to compare** — a loupe that magnifies the restored photo over the original, a drag-to-reveal slider, and side by side.
 - 🗄️ **Album** — every restoration is saved to a private album automatically. Reopen any of them in the workspace, or download, share or delete them.
 - 🔗 **Share links** — publish a restoration at `/share/<id>`: a before/after page with link previews. Each link gets a generated preview card (before and after in photo corners). Links are unlisted, not indexed by search engines, and can be turned off at any time.
 - 📚 **Batch restores** — drop up to 10 photos and they restore one after another, each saved to the album. Large photos are shrunk in the browser to fit the upload limit.
-- 🎟️ **Daily free credits** — 3 restorations/day, tracked in Supabase.
+- 🎟️ **Free credits** — every account holds up to 3; one more comes back every 24 hours. Tracked in Supabase.
+- ⚖️ **Policies and privacy** — privacy, terms and cookie pages (prerendered static HTML), an 18+ agreement at sign-up, photo metadata (GPS location etc.) stripped in the browser before upload, and "Delete all my photos" in Settings. No analytics, ads or third-party fonts.
 - 🔒 **Secure by design** — all auth and database logic runs server-side, with no secrets in the browser. Restore, sign-up, login and password-reset requests are rate-limited per client IP.
 
 ## 🏗️ Architecture
@@ -64,7 +65,14 @@ npx vercel dev
 
 The landing page shows a real restoration as a before/after album spread. Swap in your own example by replacing [`public/showcase/before.png`](public/showcase/before.png) and [`public/showcase/after.png`](public/showcase/after.png) (square images work best).
 
-The UI uses Young Serif and Atkinson Hyperlegible from Google Fonts. Both are under the SIL Open Font License; copies (with their licenses) live in [`api/_lib/fonts/`](api/_lib/fonts/) because the share-card renderer needs TTF files.
+The UI uses Young Serif and Atkinson Hyperlegible, both under the SIL Open Font License. The site serves its own WOFF2 copies from [`public/fonts/`](public/fonts/) (no Google Fonts requests), and TTF copies live in [`api/_lib/fonts/`](api/_lib/fonts/) for the share-card renderer. Both folders include the licenses.
+
+### Pages, metadata and policies
+
+- Every page has a real address (`/`, `/signin`, `/signup`, `/album`, `/privacy`, `/terms`, `/cookies`). Titles, descriptions and canonical links come from `PAGE_META` in [`utils/routes.ts`](utils/routes.ts).
+- `npm run build` writes one HTML file per page with its own head tags, prerenders the policy pages to static HTML without JavaScript, and generates `sitemap.xml` (see the plugin in [`vite.config.ts`](vite.config.ts)). Vercel's `cleanUrls` serves `/privacy` from `privacy.html`.
+- The policy text lives in [`components/legal/`](components/legal/); the operator, location, contact and "last updated" date are in [`utils/site.ts`](utils/site.ts). Update `POLICIES_UPDATED` whenever a policy changes.
+- `public/robots.txt` and `public/llms.txt` are static. The production URL is `SITE_URL` in `utils/site.ts`; change it there (and in those two files and the JSON-LD in `index.html`) when moving to a custom domain.
 
 ## 📦 Deployment
 
@@ -92,7 +100,7 @@ What the code enforces:
 - **Secrets stay on the server.** The browser only talks to `/api`, and no keys are in the frontend bundle.
 - **Data isolation.** Postgres RLS and least-privilege grants limit every user to their own profile, archive rows and storage folder. Credits only change through `deduct_credits()`.
 - **Rate limits** per client IP on restore, sign-up, login and password reset (see `api/_lib/rateLimit.ts`).
-- **Security headers** in `vercel.json`, including a strict Content Security Policy that only allows scripts from this site.
+- **Security headers** in `vercel.json`, including a strict Content Security Policy on every page that only allows scripts, styles and fonts from this site.
 - **Sessions live in HttpOnly cookies** (`Secure`, `SameSite=Strict`, scoped to `/api`), so page scripts can't read the tokens. The server renews expired sessions itself, and state-changing requests from other sites are rejected. Sign-out revokes the session in Supabase. See `api/_lib/cookies.ts` and `api/_lib/auth.ts`.
 - **Email links use PKCE.** Confirmation and password-reset links carry a one-time code rather than tokens, and only complete sign-in in the browser that requested them.
 

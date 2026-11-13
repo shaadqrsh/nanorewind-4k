@@ -38,6 +38,41 @@ h1, h2, h3 { text-wrap: balance; }
 
 :focus-visible { outline: 2px solid rgb(var(--brass)); outline-offset: 3px; }
 
+/* Hidden until a keyboard user tabs to it, then shown over the header. */
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -200px;
+  z-index: 200;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgb(var(--bone));
+  color: rgb(var(--page));
+  font-weight: 700;
+}
+.skip-link:focus { top: 12px; }
+
+/* Long-form text on the policy pages. :where() keeps these as weak as a
+   single class, so utility classes on an element still win. */
+@layer components {
+  .legal :where(h2) { margin: 52px 0 14px; font-family: "Young Serif", Georgia, serif; font-size: 28px; line-height: 1.15; scroll-margin-top: 24px; }
+  .legal :where(h3) { margin: 28px 0 8px; font-weight: 700; font-size: 18px; line-height: 1.35; scroll-margin-top: 24px; }
+  .legal :where(p), .legal :where(ul) { margin: 0 0 16px; color: rgb(var(--bone-2)); }
+  .legal :where(ul) { padding-left: 22px; list-style: disc; }
+  .legal :where(li) { margin: 0 0 8px; padding-left: 4px; }
+  .legal li::marker { color: rgb(var(--bone-3)); }
+  .legal :where(b) { color: rgb(var(--bone)); }
+  .legal :where(a) { color: rgb(var(--bone)); text-decoration: underline; text-decoration-color: rgb(var(--bone-3)); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+  .legal :where(a:hover) { text-decoration-color: rgb(var(--bone)); }
+  .legal :where(code) { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.88em; color: rgb(var(--bone)); overflow-wrap: anywhere; }
+  .legal :where(aside ul) { margin-bottom: 0; }
+  .legal :where(.table-wrap) { margin: 0 0 20px; overflow-x: auto; }
+  .legal :where(table) { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 15px; }
+  .legal :where(th), .legal :where(td) { padding: 12px 14px 12px 0; border-top: 1px solid rgb(var(--rule)); text-align: left; vertical-align: top; color: rgb(var(--bone-2)); }
+  .legal :where(thead th) { border-top: 0; color: rgb(var(--bone-3)); font-weight: 700; }
+  .legal :where(tbody th) { font-weight: 400; color: rgb(var(--bone)); }
+}
+
 @layer components {
   /* A print held in four photo corners. The corners sit slightly outside the
      photo, like the paper pockets in an album. Size with --c, overhang with --co. */

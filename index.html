@@ -3,10 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- page-meta: replaced for every page at build time from PAGE_META in utils/routes.ts -->
     <title>NanoRewind 4K | Restore old family photos</title>
-    <meta name="description" content="Repair damage and faded color in old family photos. Upload a scan or a phone photo of the print. 3 free restorations a day." />
-    <meta name="theme-color" content="#1f0e10" />
+    <meta name="description" content="Repair damage and faded color in old family photos. Upload a scan or a phone photo of the print. Free to try, with 3 restorations to start." />
+    <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://nanorewind-4k.vercel.app/" />
+    <meta property="og:url" content="https://nanorewind-4k.vercel.app/" />
+    <meta property="og:title" content="NanoRewind 4K | Restore old family photos" />
+    <meta property="og:description" content="Repair damage and faded color in old family photos. Upload a scan or a phone photo of the print. Free to try, with 3 restorations to start." />
+    <meta name="twitter:title" content="NanoRewind 4K | Restore old family photos" />
+    <meta name="twitter:description" content="Repair damage and faded color in old family photos. Upload a scan or a phone photo of the print. Free to try, with 3 restorations to start." />
+    <!-- /page-meta -->
+    <meta name="theme-color" content="#1f0e10" />
 
     <link rel="icon" href="/favicon.ico?v=2" sizes="32x32" />
     <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
@@ -16,22 +24,56 @@
     <!-- Link previews (Discord, iMessage, Slack, X, WhatsApp). Scrapers need absolute URLs. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="NanoRewind 4K" />
-    <meta property="og:url" content="https://nanorewind-4k.vercel.app/" />
-    <meta property="og:title" content="NanoRewind 4K | Restore old family photos" />
-    <meta property="og:description" content="Repair damage and faded color in old family photos. 3 free restorations a day." />
-    <meta property="og:image" content="https://nanorewind-4k.vercel.app/og-card.jpg" />
+    <meta property="og:image" content="https://nanorewind-4k.vercel.app/og-card.jpg?v=3" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="A faded photo of a boy in an embroidered cap next to its restored copy, held in album photo corners" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="NanoRewind 4K | Restore old family photos" />
-    <meta name="twitter:description" content="Repair damage and faded color in old family photos. 3 free restorations a day." />
-    <meta name="twitter:image" content="https://nanorewind-4k.vercel.app/og-card.jpg" />
+    <meta name="twitter:image" content="https://nanorewind-4k.vercel.app/og-card.jpg?v=3" />
 
-    <!-- Typeface: Young Serif (headings) + Atkinson Hyperlegible (text) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <!-- Typefaces, served from this site: Young Serif (headings) and Atkinson Hyperlegible (text) -->
+    <link rel="preload" href="/fonts/atkinson-hyperlegible-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/young-serif-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+
+    <!-- structured-data: kept on the home page only -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://nanorewind-4k.vercel.app/#website",
+            "url": "https://nanorewind-4k.vercel.app/",
+            "name": "NanoRewind 4K",
+            "inLanguage": "en",
+            "publisher": { "@id": "https://nanorewind-4k.vercel.app/#operator" }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://nanorewind-4k.vercel.app/#app",
+            "name": "NanoRewind 4K",
+            "url": "https://nanorewind-4k.vercel.app/",
+            "description": "Restores old family photos with Google Gemini: repairs scratches, tears and faded color, and sharpens soft or small scans. Results are saved to a private album.",
+            "applicationCategory": "MultimediaApplication",
+            "operatingSystem": "Any (runs in a web browser)",
+            "browserRequirements": "Requires JavaScript",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "image": "https://nanorewind-4k.vercel.app/og-card.jpg?v=3",
+            "creator": { "@id": "https://nanorewind-4k.vercel.app/#operator" },
+            "isPartOf": { "@id": "https://nanorewind-4k.vercel.app/#website" }
+          },
+          {
+            "@type": "Person",
+            "@id": "https://nanorewind-4k.vercel.app/#operator",
+            "name": "Shaad Qureshi",
+            "url": "https://github.com/shaadqrsh"
+          }
+        ]
+      }
+    </script>
+    <!-- /structured-data -->
   </head>
   <body class="font-sans antialiased">
     <div id="root"></div>

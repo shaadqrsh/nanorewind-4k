@@ -1,4 +1,5 @@
 import type { ImageFile } from '../types';
+import { stripMetadata } from './stripMetadata';
 
 // Archived images are served from Supabase Storage, a different origin, where
 // browsers ignore <a download>. Fetching into a same-origin blob URL makes
@@ -83,10 +84,18 @@ export const toUploadData = async (file: ImageFile): Promise<{ data: string; mim
 
 const dataUrlBytes = (dataUrl: string) => Math.ceil(((dataUrl.length - dataUrl.indexOf(',') - 1) * 3) / 4);
 
+// Photo metadata (GPS location, camera, dates) is always removed before
+// upload, so it never reaches Google, storage or a share link. Small, upright
+// photos keep their exact image data. Large or rotated ones are redrawn on a
+// canvas, which applies the rotation and drops all metadata.
 export const prepareUpload = async (file: File): Promise<ImageFile> => {
   if (!UPLOAD_TYPES.includes(file.type)) throw new Error('Use a JPG, PNG or WebP photo.');
   if (file.size <= MAX_UPLOAD_BYTES) {
-    return { previewUrl: await readAsDataUrl(file), name: file.name, mimeType: file.type };
+    const clean = stripMetadata(new Uint8Array(await file.arrayBuffer()), file.type);
+    if (clean && clean.orientation <= 1) {
+      const blob = new Blob([clean.bytes as BlobPart], { type: file.type });
+      return { previewUrl: await readAsDataUrl(blob), name: file.name, mimeType: file.type };
+    }
   }
 
   const bitmap = await createImageBitmap(file);

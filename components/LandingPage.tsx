@@ -3,19 +3,14 @@ import { buttonClass } from './Button';
 import { Wordmark } from './Wordmark';
 import { PhotoSpread, SAMPLE_AFTER } from './PhotoSpread';
 import { PROCESSES } from './PromptSelector';
-
-interface LandingPageProps {
-  onSignIn: () => void;
-  onSignUp: () => void;
-}
-
-export const REPO_URL = 'https://github.com/shaadqrsh/nanorewind-4k';
+import { SiteFooter, SkipLink } from './SiteChrome';
+import { linkTo, PATHS } from '../utils/routes';
 
 const FIXES = [
-  { title: 'Scratches and tears', desc: 'Erases cracks, dust and fold lines while keeping the detail underneath.' },
+  { title: 'Scratches and tears', desc: 'Fills in cracks, dust and fold lines by redrawing the damaged areas.' },
   { title: 'Faded color', desc: 'Fixes yellowing and color casts so skin and clothes look natural again.' },
-  { title: 'Soft focus', desc: 'Sharpens blurry detail and brings faces back into focus.' },
-  { title: 'Small scans', desc: 'Upscales low-resolution scans to a sharper, high-resolution copy.' },
+  { title: 'Soft focus', desc: 'Sharpens blurry detail, including faces.' },
+  { title: 'Small scans', desc: 'Makes a sharper copy of a small or low-resolution scan, at about one megapixel (for example 1024 by 1024 pixels).' },
 ];
 
 const STYLE_NOTES: Record<string, string> = {
@@ -35,23 +30,25 @@ const STEPS = [
 
 const linkCls = 'hover:text-bone transition-colors';
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) => {
-  // Links keep real hrefs so they work as links; the click handlers update the view.
-  const go = (fn: () => void) => (e: React.MouseEvent) => { e.preventDefault(); fn(); };
+export const LandingPage: React.FC = () => {
+  const signIn = { href: PATHS.signin, onClick: linkTo('signin') };
+  const signUp = { href: PATHS.signup, onClick: linkTo('signup') };
 
   return (
     <div className="min-h-dvh flex flex-col">
+      <SkipLink />
       <header className="bg-cover border-b border-rule">
         <div className="mx-auto max-w-[1200px] px-4 sm:px-9 py-[18px] flex items-center justify-between gap-4">
-          <a href="/" aria-label="NanoRewind 4K home"><Wordmark className="text-[21px] sm:text-2xl" /></a>
+          <a href="/" aria-label="NanoRewind 4K home"><Wordmark className="text-[19px] min-[400px]:text-[21px] sm:text-2xl" /></a>
           <nav aria-label="Account" className="flex items-center gap-3.5 sm:gap-5">
-            <a href="#signin" onClick={go(onSignIn)} className="font-bold whitespace-nowrap hover:text-bone-2 transition-colors">Sign in</a>
-            <a href="#signup" onClick={go(onSignUp)} className={buttonClass('primary', 'sm')}>Get started</a>
+            <a {...signIn} className="font-bold whitespace-nowrap hover:text-bone-2 transition-colors">Sign in</a>
+            {/* Too wide for small phones, where the hero's buttons sit right below. */}
+            <a {...signUp} className={`${buttonClass('primary', 'sm')} hidden min-[440px]:inline-flex`}>Get started</a>
           </nav>
         </div>
       </header>
 
-      <main className="flex-1">
+      <main id="main" tabIndex={-1} className="flex-1 outline-none">
         <section className="mx-auto max-w-[1200px] px-4 sm:px-9 pt-11 pb-20 lg:pt-[72px] lg:pb-[120px] grid gap-11 lg:grid-cols-[5fr_7fr] lg:gap-16 lg:items-center">
           <div className="flex flex-col gap-[22px] min-w-0">
             <h1 className="font-display text-[clamp(42px,5.8vw,74px)] leading-[1.02] tracking-[-0.012em]">Restore your family photos</h1>
@@ -60,10 +57,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
               then keeps the result in your own private album.
             </p>
             <div className="flex flex-wrap gap-3 mt-2">
-              <a href="#signup" onClick={go(onSignUp)} className={buttonClass('primary')}>Restore a photo</a>
-              <a href="#signin" onClick={go(onSignIn)} className={buttonClass('quiet')}>Sign in</a>
+              <a {...signUp} className={buttonClass('primary')}>Restore a photo</a>
+              <a {...signIn} className={buttonClass('quiet')}>Sign in</a>
             </div>
-            <p className="text-[15px] text-bone-3">3 free restorations a day. No card needed.</p>
+            <p className="text-[15px] text-bone-3">3 free restorations to start, and 1 more every 24 hours. No card needed.</p>
           </div>
           <PhotoSpread />
         </section>
@@ -79,6 +76,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
                 </li>
               ))}
             </ul>
+            <p className="mt-10 text-[15px] text-bone-3 max-w-[64ch]">
+              The restoration is made by AI (Google Gemini). It redraws what's damaged or blurry, so faces, writing and
+              other small details can come out a little different from the original. Compare each result with the
+              original before you keep it.
+            </p>
           </div>
         </section>
 
@@ -124,24 +126,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onSignUp }) 
           <section className="py-16 border-t border-rule flex flex-wrap items-center justify-between gap-6">
             <div>
               <h2 className="font-display text-[clamp(28px,3.4vw,42px)] leading-[1.08]">Try it on a photo of your own</h2>
-              <p className="mt-2.5 text-bone-2">Sign up for free and get 3 restorations a day.</p>
+              <p className="mt-2.5 text-bone-2">Sign up for free. You start with 3 restorations and get 1 more every 24 hours.</p>
             </div>
-            <a href="#signup" onClick={go(onSignUp)} className={buttonClass('primary')}>Restore a photo</a>
+            <a {...signUp} className={buttonClass('primary')}>Restore a photo</a>
           </section>
         </div>
       </main>
 
-      <footer className="bg-cover border-t border-rule">
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-9 py-7 flex flex-wrap items-center justify-between gap-4 text-[15px] text-bone-3">
-          <span>NanoRewind 4K</span>
-          <nav aria-label="Site" className="flex flex-wrap gap-x-6 gap-y-2">
-            <a href="#signin" onClick={go(onSignIn)} className={linkCls}>Sign in</a>
-            <a href="#signup" onClick={go(onSignUp)} className={linkCls}>Create an account</a>
-            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={linkCls}>Source code</a>
-          </nav>
-          <span>Powered by Google Gemini</span>
-        </div>
-      </footer>
+      <SiteFooter>
+        <a {...signIn} className={linkCls}>Sign in</a>
+        <a {...signUp} className={linkCls}>Create an account</a>
+      </SiteFooter>
     </div>
   );
 };

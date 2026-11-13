@@ -7,6 +7,12 @@ import { readJson } from './http';
 // Where older versions kept the token. Read once to migrate, then deleted.
 const LEGACY_TOKEN_KEY = 'nanorewind_auth_token';
 
+export interface Quota {
+  allowed: boolean;
+  remaining: number;
+  nextReset?: number | null; // when the next free restoration comes back
+}
+
 const postJson = (url: string, body: unknown = {}) =>
   fetch(url, {
     method: 'POST',
@@ -71,7 +77,9 @@ export const authService = {
     return {};
   },
 
-  signUp: async (params: { email: string; password: string; name?: string }) => {
+  // `agreed`: the person confirmed they're old enough and accept the terms.
+  // The server refuses sign-ups without it.
+  signUp: async (params: { email: string; password: string; name?: string; agreed: boolean }) => {
     const res = await postJson('/api/auth/signup', {
       ...params,
       redirectTo: window.location.origin, // Ensure validation links return to this app
@@ -92,6 +100,8 @@ export const authService = {
     await postJson('/api/auth/logout').catch(() => { });
   },
 
+  // The signed-in user, or null. Signed-out visitors get a 200 with
+  // { user: null }, so the check doesn't log an error in the console.
   getSession: async () => {
     try {
       const res = await fetch('/api/auth/me');
@@ -133,7 +143,7 @@ export const authService = {
 
   // --- QUOTA METHODS ---
 
-  checkQuota: async (): Promise<{ allowed: boolean; remaining: number; nextReset?: number }> => {
+  checkQuota: async (): Promise<Quota> => {
     try {
       const res = await fetch('/api/quota');
       if (!res.ok) return { allowed: false, remaining: 0 };

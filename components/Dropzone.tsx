@@ -43,6 +43,10 @@ export const Dropzone: React.FC<DropzoneProps> = ({ onFilesSelect }) => {
           <button type="button" onClick={() => inputRef.current?.click()} className={`${buttonClass('primary')} mt-1`}>
             Choose photos
           </button>
+          <p className="text-sm text-bone-3">
+            Photos are sent to Google Gemini to be restored. Details stored in the file, such as the GPS location, are
+            removed first. <a href="/privacy#google" target="_blank" rel="noopener" className="underline decoration-bone-3 decoration-[1.5px] underline-offset-4 hover:text-bone">How photos are handled</a>
+          </p>
         </div>
         <input
           ref={inputRef}
