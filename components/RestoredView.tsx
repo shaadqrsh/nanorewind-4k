@@ -18,9 +18,9 @@ interface RestoredViewProps {
 
 type Mode = 'loupe' | 'slider' | 'pair';
 const MODES: { mode: Mode; label: string }[] = [
-  { mode: 'loupe', label: 'Loupe' },
-  { mode: 'slider', label: 'Slider' },
   { mode: 'pair', label: 'Side by side' },
+  { mode: 'slider', label: 'Slider' },
+  { mode: 'loupe', label: 'Loupe' },
 ];
 const MODE_KEY = 'nanorewind:view-mode';
 const ZOOM = 2.4;
@@ -44,9 +44,9 @@ const useNaturalSize = (url: string | null) => {
 const savedMode = (): Mode => {
   try {
     const m = localStorage.getItem(MODE_KEY);
-    return m === 'slider' || m === 'pair' ? m : 'loupe';
+    return m === 'slider' || m === 'loupe' ? m : 'pair';
   } catch {
-    return 'loupe';
+    return 'pair';
   }
 };
 
